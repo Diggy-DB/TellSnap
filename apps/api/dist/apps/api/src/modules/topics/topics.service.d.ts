@@ -25,4 +25,15 @@ export declare class TopicsService {
             topicCount: number;
         }[];
     }>;
+    create(data: {
+        title: string;
+        description?: string;
+        category?: string;
+    }, userId: string): Promise<{
+        id: string;
+        title: string;
+        description: string | null;
+        category: string;
+        createdAt: Date;
+    }>;
 }

@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var ScenesService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScenesService = void 0;
 const common_1 = require("@nestjs/common");
@@ -19,10 +20,12 @@ const bullmq_2 = require("bullmq");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const redis_service_1 = require("../../redis/redis.service");
 const client_1 = require("@prisma/client");
-let ScenesService = class ScenesService {
+let ScenesService = ScenesService_1 = class ScenesService {
     prisma;
     redis;
     generationQueue;
+    logger = new common_1.Logger(ScenesService_1.name);
+    generatorApiUrl = process.env.GENERATOR_API_URL || 'http://localhost:8080';
     constructor(prisma, redis, generationQueue) {
         this.prisma = prisma;
         this.redis = redis;
@@ -72,9 +75,13 @@ let ScenesService = class ScenesService {
                     select: {
                         id: true,
                         orderIndex: true,
+                        prompt: true,
                         thumbnailUrl: true,
-                        duration: true,
+                        imageUrl: true,
+                        numPanels: true,
+                        comicStyle: true,
                         status: true,
+                        createdAt: true,
                     },
                 },
             },
@@ -85,7 +92,7 @@ let ScenesService = class ScenesService {
         await this.redis.set(`scene:${id}`, scene, 60);
         return scene;
     }
-    async getPlaylist(id) {
+    async getPages(id) {
         const scene = await this.prisma.scene.findUnique({
             where: { id },
             include: {
@@ -95,9 +102,10 @@ let ScenesService = class ScenesService {
                     select: {
                         id: true,
                         orderIndex: true,
-                        hlsUrl: true,
-                        duration: true,
+                        imageUrl: true,
                         thumbnailUrl: true,
+                        numPanels: true,
+                        comicStyle: true,
                     },
                 },
             },
@@ -107,8 +115,8 @@ let ScenesService = class ScenesService {
         }
         return {
             sceneId: scene.id,
-            totalDuration: scene.totalDuration,
-            segments: scene.segments,
+            totalPages: scene.segments.length,
+            pages: scene.segments,
         };
     }
     async create(dto, userId) {
@@ -124,28 +132,88 @@ let ScenesService = class ScenesService {
         await this.prisma.sceneBible.create({
             data: { sceneId: scene.id },
         });
-        const segment = await this.prisma.segment.create({
-            data: {
+        let segmentsToCreate = [];
+        try {
+            const segmentationResult = await this.analyzeScript(dto.initialPrompt);
+            if (segmentationResult && segmentationResult.needs_segmentation) {
+                this.logger.log(`Script needs segmentation: ${segmentationResult.num_segments} segments`);
+                segmentsToCreate = segmentationResult.segments;
+            }
+            else {
+                segmentsToCreate = [{
+                        order_index: 1,
+                        prompt: dto.initialPrompt,
+                        scene_description: '',
+                        duration_estimate: 8,
+                        continuity_notes: '',
+                    }];
+            }
+        }
+        catch (error) {
+            this.logger.warn('Script analysis failed, creating single segment', error);
+            segmentsToCreate = [{
+                    order_index: 1,
+                    prompt: dto.initialPrompt,
+                    scene_description: '',
+                    duration_estimate: 8,
+                    continuity_notes: '',
+                }];
+        }
+        const segments = [];
+        const jobs = [];
+        for (const segInfo of segmentsToCreate) {
+            const segment = await this.prisma.segment.create({
+                data: {
+                    sceneId: scene.id,
+                    createdById: userId,
+                    orderIndex: segInfo.order_index,
+                    prompt: segInfo.prompt,
+                    status: client_1.SegmentStatus.PENDING,
+                },
+            });
+            segments.push(segment);
+            const job = await this.prisma.job.create({
+                data: {
+                    type: client_1.JobType.GENERATE_COMIC,
+                    segmentId: segment.id,
+                    status: client_1.JobStatus.PENDING,
+                },
+            });
+            jobs.push(job);
+            const delay = (segInfo.order_index - 1) * 1000;
+            await this.generationQueue.add('generate-comic', {
+                jobId: job.id,
                 sceneId: scene.id,
-                createdById: userId,
-                orderIndex: 1,
-                prompt: dto.initialPrompt,
-                status: client_1.SegmentStatus.PENDING,
-            },
-        });
-        const job = await this.prisma.job.create({
-            data: {
-                type: client_1.JobType.GENERATE_SEGMENT,
                 segmentId: segment.id,
-                status: client_1.JobStatus.PENDING,
-            },
-        });
-        await this.generationQueue.add('generate', {
-            jobId: job.id,
-            sceneId: scene.id,
-            segmentId: segment.id,
-        });
-        return { scene, segment, job };
+                comicStyle: 'manga',
+            }, { delay });
+            this.logger.log(`Queued comic page ${segInfo.order_index}/${segmentsToCreate.length}`);
+        }
+        return {
+            scene,
+            segment: segments[0],
+            job: jobs[0],
+            totalSegments: segments.length,
+            segments,
+        };
+    }
+    async analyzeScript(prompt) {
+        try {
+            const response = await fetch(`${this.generatorApiUrl}/api/analyze-script`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt }),
+            });
+            if (!response.ok) {
+                this.logger.warn(`Script analysis returned ${response.status}`);
+                return null;
+            }
+            return await response.json();
+        }
+        catch (error) {
+            this.logger.warn('Failed to connect to generator API for script analysis', error);
+            return null;
+        }
     }
     async continue(sceneId, dto, userId) {
         const scene = await this.prisma.scene.findUnique({
@@ -167,15 +235,16 @@ let ScenesService = class ScenesService {
         });
         const job = await this.prisma.job.create({
             data: {
-                type: client_1.JobType.GENERATE_SEGMENT,
+                type: client_1.JobType.GENERATE_COMIC,
                 segmentId: segment.id,
                 status: client_1.JobStatus.PENDING,
             },
         });
-        await this.generationQueue.add('generate', {
+        await this.generationQueue.add('generate-comic', {
             jobId: job.id,
             sceneId,
             segmentId: segment.id,
+            comicStyle: 'manga',
         });
         await this.redis.del(`scene:${sceneId}`);
         return { segment, job };
@@ -193,7 +262,7 @@ let ScenesService = class ScenesService {
     }
 };
 exports.ScenesService = ScenesService;
-exports.ScenesService = ScenesService = __decorate([
+exports.ScenesService = ScenesService = ScenesService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(2, (0, bullmq_1.InjectQueue)('generation')),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,

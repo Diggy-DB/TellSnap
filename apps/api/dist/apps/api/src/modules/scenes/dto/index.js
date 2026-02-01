@@ -36,7 +36,7 @@ __decorate([
 ], CreateSceneDto.prototype, "description", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateSceneDto.prototype, "topicId", void 0);
@@ -54,7 +54,7 @@ class ContinueSceneDto {
 exports.ContinueSceneDto = ContinueSceneDto;
 __decorate([
     (0, swagger_1.ApiProperty)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ContinueSceneDto.prototype, "parentSegmentId", void 0);
 __decorate([
@@ -91,13 +91,13 @@ __decorate([
 ], ListScenesQueryDto.prototype, "limit", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], ListScenesQueryDto.prototype, "topicId", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], ListScenesQueryDto.prototype, "categoryId", void 0);

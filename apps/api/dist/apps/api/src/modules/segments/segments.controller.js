@@ -32,8 +32,8 @@ let SegmentsController = class SegmentsController {
     async submitSegment(dto, req) {
         return this.segmentsService.submitSegment(dto, req.user.sub);
     }
-    async generateVideo(dto, req) {
-        return this.segmentsService.generateVideo(dto, req.user.sub);
+    async generateComic(dto, req) {
+        return this.segmentsService.generateComic(dto, req.user.sub);
     }
     async submitAndGenerate(dto, req) {
         return this.segmentsService.submitAndGenerate(dto, req.user.sub);
@@ -84,8 +84,8 @@ __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({
-        summary: 'Start video generation for a segment',
-        description: 'Queues a segment for video generation. The prompt is expanded using ChatGPT and then video is generated using Google Veo 3.',
+        summary: 'Start comic generation for a segment',
+        description: 'Queues a segment for comic page generation. The prompt is expanded using ChatGPT and then comic panels are generated using Google Imagen 3.',
     }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Generation job created', type: dto_1.JobStatusDto }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Generation already in progress' }),
@@ -95,14 +95,14 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [dto_1.GenerateVideoDto, Object]),
     __metadata("design:returntype", Promise)
-], SegmentsController.prototype, "generateVideo", null);
+], SegmentsController.prototype, "generateComic", null);
 __decorate([
     (0, common_1.Post)('submit-and-generate'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({
-        summary: 'Submit a segment and immediately start video generation',
-        description: 'Combines segment creation and video generation into a single call. Creates the segment, queues it for processing with ChatGPT script expansion, then generates video with Google Veo 3.',
+        summary: 'Submit a segment and immediately start comic generation',
+        description: 'Combines segment creation and comic generation into a single call. Creates the segment, queues it for processing with ChatGPT script expansion, then generates comic panels with Google Imagen 3.',
     }),
     (0, swagger_1.ApiResponse)({
         status: 201,

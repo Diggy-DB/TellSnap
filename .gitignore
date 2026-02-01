@@ -9,3 +9,12 @@ services/generator/.env
 __pycache__/
 *.pyc
 
+# Python virtual environment
+.venv/
+*/.venv/
+**/.venv/
+
+# Credentials
+credentials.json
+**/credentials.json
+

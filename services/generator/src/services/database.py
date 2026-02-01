@@ -145,7 +145,7 @@ class DatabaseService:
                 with conn.cursor() as cur:
                     cur.execute("""
                         SELECT id, scene_id, order_index, prompt, expanded_script, 
-                               status, video_url, hls_url, thumbnail_url, duration
+                               status, video_url, image_url, thumbnail_url, duration, num_panels
                         FROM segments 
                         WHERE scene_id = %s AND order_index < %s
                         ORDER BY order_index ASC
@@ -166,9 +166,11 @@ class DatabaseService:
                 "status": "status",
                 "expanded_script": "expanded_script",
                 "video_url": "video_url",
+                "image_url": "image_url",
                 "hls_url": "hls_url",
                 "thumbnail_url": "thumbnail_url",
                 "duration": "duration",
+                "num_panels": "num_panels",
                 "continuity_hash": "continuity_hash",
             }
             

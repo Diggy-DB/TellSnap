@@ -31,11 +31,16 @@ class Settings(BaseSettings):
     google_ai_api_key: str = ""
     google_ai_model: str = "veo-3"
     google_ai_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    google_application_credentials: str = ""
+    google_cloud_project: str = ""
 
     # Worker
     worker_concurrency: int = 4
     max_retries: int = 3
     retry_delay: int = 60
+    
+    # API Server
+    api_port: int = 8080
 
     class Config:
         env_file = str(Path(__file__).parent.parent / ".env")

@@ -92,7 +92,7 @@ let SegmentsService = class SegmentsService {
         });
         return segment;
     }
-    async generateVideo(dto, userId) {
+    async generateComic(dto, userId) {
         const segment = await this.prisma.segment.findUnique({
             where: { id: dto.segmentId },
             include: { scene: true },
@@ -101,25 +101,28 @@ let SegmentsService = class SegmentsService {
             throw new common_1.NotFoundException('Segment not found');
         }
         if (segment.status === client_1.SegmentStatus.PROCESSING || segment.status === client_1.SegmentStatus.QUEUED) {
-            throw new common_1.BadRequestException('Video generation already in progress');
+            throw new common_1.BadRequestException('Comic generation already in progress');
         }
+        const comicStyle = dto.comicStyle || 'manga';
         const job = await this.prisma.job.create({
             data: {
-                type: client_1.JobType.GENERATE_SEGMENT,
+                type: client_1.JobType.GENERATE_COMIC,
                 status: client_1.JobStatus.PENDING,
                 segmentId: dto.segmentId,
             },
         });
         await this.prisma.segment.update({
             where: { id: dto.segmentId },
-            data: { status: client_1.SegmentStatus.QUEUED },
+            data: {
+                status: client_1.SegmentStatus.QUEUED,
+                comicStyle: comicStyle,
+            },
         });
-        await this.generationQueue.add('generate-segment', {
+        await this.generationQueue.add('generate-comic', {
             jobId: job.id,
             sceneId: segment.sceneId,
             segmentId: dto.segmentId,
-            aspectRatio: dto.aspectRatio || '16:9',
-            durationSeconds: dto.durationSeconds || 8,
+            comicStyle: comicStyle,
         }, {
             attempts: 3,
             backoff: {
@@ -133,12 +136,12 @@ let SegmentsService = class SegmentsService {
             jobId: job.id,
             segmentId: dto.segmentId,
             status: 'queued',
-            message: 'Video generation queued successfully',
+            message: 'Comic generation queued successfully',
         };
     }
     async submitAndGenerate(dto, userId) {
         const segment = await this.submitSegment(dto, userId);
-        const jobResult = await this.generateVideo({ segmentId: segment.id }, userId);
+        const jobResult = await this.generateComic({ segmentId: segment.id, ...dto.comicStyle && { comicStyle: dto.comicStyle } }, userId);
         return {
             segment,
             job: jobResult,
@@ -152,10 +155,10 @@ let SegmentsService = class SegmentsService {
                     select: {
                         id: true,
                         status: true,
-                        videoUrl: true,
-                        hlsUrl: true,
+                        imageUrl: true,
                         thumbnailUrl: true,
-                        duration: true,
+                        numPanels: true,
+                        comicStyle: true,
                     },
                 },
             },
@@ -188,7 +191,7 @@ let SegmentsService = class SegmentsService {
                 orderIndex: true,
                 prompt: true,
                 expandedScript: true,
-                videoUrl: true,
+                imageUrl: true,
                 status: true,
             },
         });

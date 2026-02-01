@@ -197,11 +197,16 @@ model Segment {
   prompt         String
   expandedScript String?       @map("expanded_script")
   
-  // Video
+  // Media (Comic/Manga)
   status         SegmentStatus @default(PENDING)
+  imageUrl       String?       @map("image_url")      // Comic page image
+  thumbnailUrl   String?       @map("thumbnail_url")
+  numPanels      Int?          @map("num_panels")     // Number of panels on page
+  comicStyle     String?       @map("comic_style")    // manga, manhwa, western_comic, webtoon
+  
+  // Legacy video fields (deprecated)
   videoUrl       String?       @map("video_url")
   hlsUrl         String?       @map("hls_url")
-  thumbnailUrl   String?       @map("thumbnail_url")
   duration       Float?
   
   // Metadata
@@ -273,10 +278,14 @@ model Job {
 }
 
 enum JobType {
+  // New comic generation types
+  GENERATE_COMIC
+  REGENERATE_COMIC
+  GENERATE_THUMBNAIL
+  // Legacy video types (kept for backward compatibility)
   GENERATE_SEGMENT
   REGENERATE_SEGMENT
   TRANSCODE_VIDEO
-  GENERATE_THUMBNAIL
 }
 
 enum JobStatus {

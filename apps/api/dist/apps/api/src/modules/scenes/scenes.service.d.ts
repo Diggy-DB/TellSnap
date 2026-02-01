@@ -6,6 +6,8 @@ export declare class ScenesService {
     private prisma;
     private redis;
     private generationQueue;
+    private readonly logger;
+    private readonly generatorApiUrl;
     constructor(prisma: PrismaService, redis: RedisService, generationQueue: Queue);
     list(query: ListScenesQueryDto): Promise<{
         items: ({
@@ -42,15 +44,16 @@ export declare class ScenesService {
         };
     }>;
     findById(id: string): Promise<{}>;
-    getPlaylist(id: string): Promise<{
+    getPages(id: string): Promise<{
         sceneId: string;
-        totalDuration: number;
-        segments: {
+        totalPages: number;
+        pages: {
             id: string;
             thumbnailUrl: string | null;
             orderIndex: number;
-            hlsUrl: string | null;
-            duration: number | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
         }[];
     }>;
     create(dto: CreateSceneDto, userId: string): Promise<{
@@ -81,6 +84,9 @@ export declare class ScenesService {
             orderIndex: number;
             sceneId: string;
             expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
             videoUrl: string | null;
             hlsUrl: string | null;
             duration: number | null;
@@ -104,7 +110,29 @@ export declare class ScenesService {
             startedAt: Date | null;
             segmentId: string | null;
         };
+        totalSegments: number;
+        segments: {
+            id: string;
+            status: import("@prisma/client").$Enums.SegmentStatus;
+            createdAt: Date;
+            updatedAt: Date;
+            prompt: string;
+            createdById: string;
+            thumbnailUrl: string | null;
+            orderIndex: number;
+            sceneId: string;
+            expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
+            videoUrl: string | null;
+            hlsUrl: string | null;
+            duration: number | null;
+            continuityHash: string | null;
+            completedAt: Date | null;
+        }[];
     }>;
+    private analyzeScript;
     continue(sceneId: string, dto: ContinueSceneDto, userId: string): Promise<{
         segment: {
             id: string;
@@ -117,6 +145,9 @@ export declare class ScenesService {
             orderIndex: number;
             sceneId: string;
             expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
             videoUrl: string | null;
             hlsUrl: string | null;
             duration: number | null;

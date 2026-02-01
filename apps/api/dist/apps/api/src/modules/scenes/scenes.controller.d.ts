@@ -43,13 +43,26 @@ export declare class ScenesController {
     getScene(id: string): Promise<{}>;
     getPlaylist(id: string): Promise<{
         sceneId: string;
-        totalDuration: number;
-        segments: {
+        totalPages: number;
+        pages: {
             id: string;
             thumbnailUrl: string | null;
             orderIndex: number;
-            hlsUrl: string | null;
-            duration: number | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
+        }[];
+    }>;
+    getPages(id: string): Promise<{
+        sceneId: string;
+        totalPages: number;
+        pages: {
+            id: string;
+            thumbnailUrl: string | null;
+            orderIndex: number;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
         }[];
     }>;
     getBible(id: string): Promise<import("./scene-bible.service").SceneBibleData>;
@@ -81,6 +94,9 @@ export declare class ScenesController {
             orderIndex: number;
             sceneId: string;
             expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
             videoUrl: string | null;
             hlsUrl: string | null;
             duration: number | null;
@@ -104,6 +120,27 @@ export declare class ScenesController {
             startedAt: Date | null;
             segmentId: string | null;
         };
+        totalSegments: number;
+        segments: {
+            id: string;
+            status: import("@prisma/client").$Enums.SegmentStatus;
+            createdAt: Date;
+            updatedAt: Date;
+            prompt: string;
+            createdById: string;
+            thumbnailUrl: string | null;
+            orderIndex: number;
+            sceneId: string;
+            expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
+            videoUrl: string | null;
+            hlsUrl: string | null;
+            duration: number | null;
+            continuityHash: string | null;
+            completedAt: Date | null;
+        }[];
     }>;
     continueScene(id: string, dto: ContinueSceneDto, user: JwtPayload): Promise<{
         segment: {
@@ -117,6 +154,9 @@ export declare class ScenesController {
             orderIndex: number;
             sceneId: string;
             expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
             videoUrl: string | null;
             hlsUrl: string | null;
             duration: number | null;

@@ -1,8 +1,8 @@
 """
-BullMQ Worker for processing video generation jobs from NestJS.
+BullMQ Worker for processing comic generation jobs from NestJS.
 
 This worker connects to the same Redis queue that NestJS uses
-and processes video generation jobs.
+and processes comic/manga page generation jobs.
 """
 
 import asyncio
@@ -20,7 +20,7 @@ from src.config import get_settings
 from src.services.database import DatabaseService
 from src.services.storage import StorageService
 from src.services.script_expander import ScriptExpander, PreviousSegment
-from src.services.video_generator import VideoGenerator
+from src.services.comic_generator import ComicGenerator
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -36,25 +36,25 @@ def update_progress(db: DatabaseService, job_id: str, progress: int, stage: str)
 
 async def process_generation_job(job: Job, token: str) -> dict:
     """
-    Process a video generation job.
+    Process a comic generation job.
     
     Pipeline:
     1. Fetch segment and scene context
-    2. Expand script via OpenAI ChatGPT
-    3. Generate video via Google Veo 3
-    4. Upload to S3
-    5. Update database
+    2. Expand script via OpenAI ChatGPT into panel descriptions
+    3. Generate comic panels via Google Imagen 3
+    4. Compose into a comic page
+    5. Upload to S3
+    6. Update database
     """
     data = job.data
     job_id = data.get("jobId")
     scene_id = data.get("sceneId")
     segment_id = data.get("segmentId")
     user_prompt = data.get("prompt", "")
-    aspect_ratio = data.get("aspectRatio", "16:9")
-    duration_seconds = data.get("durationSeconds", 10)
+    comic_style = data.get("comicStyle", "manga")  # manga, manhwa, western_comic, webtoon
 
     log = logger.bind(job_id=job_id, scene_id=scene_id, segment_id=segment_id)
-    log.info("Processing video generation job")
+    log.info("Processing comic generation job", style=comic_style)
 
     db = DatabaseService()
     storage = StorageService()
@@ -72,6 +72,7 @@ async def process_generation_job(job: Job, token: str) -> dict:
             raise ValueError(f"Missing segment or scene data")
 
         user_prompt = segment.get("prompt", user_prompt)
+        topic_id = scene.get("topic_id") or (scene.get("topic", {}).get("id") if scene.get("topic") else None)
 
         # Get scene bible for continuity
         scene_bible = db.get_scene_bible(scene_id)
@@ -83,7 +84,7 @@ async def process_generation_job(job: Job, token: str) -> dict:
                 order_index=s["order_index"],
                 prompt=s.get("prompt", ""),
                 expanded_script=s.get("expanded_script"),
-                video_url=s.get("video_url"),
+                image_url=s.get("image_url"),
             )
             for s in previous_segments
         ]
@@ -105,6 +106,7 @@ async def process_generation_job(job: Job, token: str) -> dict:
             scene_context=scene_context,
             scene_bible=scene_bible,
             previous_segments=prev_segment_objs,
+            comic_style=comic_style,
         )
 
         # Save expanded script
@@ -115,35 +117,53 @@ async def process_generation_job(job: Job, token: str) -> dict:
 
         log.info(
             "Script expanded successfully",
-            video_prompt_length=len(expanded.video_prompt) if expanded.video_prompt else 0,
+            num_panels=len(expanded.panels),
+            layout=expanded.panel_layout,
         )
 
-        # Stage 2: Video Generation via Google Veo 3
-        log.info("Stage 2: Video generation via Google Veo 3")
-        update_progress(db, job_id, 30, "video_generating")
+        # Stage 2: Comic Panel Generation via Google Imagen 3
+        log.info("Stage 2: Comic generation via Google Imagen 3")
+        update_progress(db, job_id, 30, "comic_generating")
 
-        video_generator = VideoGenerator()
-        video_result = video_generator.generate(
-            video_prompt=expanded.video_prompt,
+        # Prepare panel prompts for the generator
+        panel_prompts = [
+            {
+                "description": panel.description,
+                "dialogue": panel.dialogue,
+                "action": panel.action,
+                "emotion": panel.emotion,
+            }
+            for panel in expanded.panels
+        ]
+
+        comic_generator = ComicGenerator()
+        comic_result = comic_generator.generate(
+            panel_prompts=panel_prompts,
             scene_bible=scene_bible,
-            aspect_ratio=aspect_ratio,
-            duration_seconds=duration_seconds,
+            style=comic_style,
+            page_layout=expanded.panel_layout,
+            aspect_ratio="9:16",  # Portrait for manga/manhwa
         )
 
-        update_progress(db, job_id, 70, "video_generated")
-        log.info("Video generated", video_path=video_result.video_path)
+        update_progress(db, job_id, 70, "comic_generated")
+        log.info("Comic page generated", page_path=str(comic_result.page_path), num_panels=comic_result.num_panels)
 
         # Stage 3: Upload to S3
         log.info("Stage 3: Uploading to S3")
         update_progress(db, job_id, 80, "uploading")
 
-        video_key = f"segments/{segment_id}/video.mp4"
+        image_key = f"segments/{segment_id}/page.png"
         thumbnail_key = f"segments/{segment_id}/thumbnail.jpg"
 
-        video_url = storage.upload_file(video_result.video_path, video_key)
+        image_url = storage.upload_file(comic_result.page_path, image_key)
         thumbnail_url = None
-        if video_result.thumbnail_path:
-            thumbnail_url = storage.upload_file(video_result.thumbnail_path, thumbnail_key)
+        if comic_result.thumbnail_path:
+            thumbnail_url = storage.upload_file(comic_result.thumbnail_path, thumbnail_key)
+
+        # Upload individual panels for potential reuse
+        for idx, panel_path in enumerate(comic_result.panel_paths):
+            panel_key = f"segments/{segment_id}/panel_{idx}.png"
+            storage.upload_file(panel_path, panel_key)
 
         update_progress(db, job_id, 90, "uploaded")
 
@@ -151,12 +171,12 @@ async def process_generation_job(job: Job, token: str) -> dict:
         log.info("Stage 4: Finalizing")
         update_progress(db, job_id, 95, "finalizing")
 
-        # Update segment with video URLs
+        # Update segment with image URLs
         db.update_segment(segment_id, {
             "status": "COMPLETED",
-            "video_url": video_url,
+            "image_url": image_url,
             "thumbnail_url": thumbnail_url,
-            "duration": video_result.duration,
+            "num_panels": comic_result.num_panels,
         })
 
         # Update job as completed
@@ -165,19 +185,20 @@ async def process_generation_job(job: Job, token: str) -> dict:
             "progress": 100,
             "stage": "completed",
             "result": json.dumps({
-                "video_url": video_url,
+                "image_url": image_url,
                 "thumbnail_url": thumbnail_url,
-                "duration": video_result.duration,
+                "num_panels": comic_result.num_panels,
+                "style": comic_result.style,
             }),
         })
 
-        log.info("Job completed successfully", video_url=video_url)
+        log.info("Job completed successfully", image_url=image_url)
 
         return {
             "success": True,
-            "video_url": video_url,
+            "image_url": image_url,
             "thumbnail_url": thumbnail_url,
-            "duration": video_result.duration,
+            "num_panels": comic_result.num_panels,
         }
 
     except Exception as e:
@@ -197,7 +218,7 @@ async def process_generation_job(job: Job, token: str) -> dict:
 
 async def main():
     """Start the BullMQ worker."""
-    logger.info("Starting BullMQ worker for video generation", redis_url=settings.redis_url)
+    logger.info("Starting BullMQ worker for comic generation", redis_url=settings.redis_url)
 
     # Parse Redis URL for connection
     # Format: redis://localhost:6379
@@ -238,7 +259,7 @@ async def main():
             raise
 
     worker = Worker(
-        "generation",  # Queue name - matches NestJS BullMQ queue
+        "generate-comic",  # Queue name - matches NestJS BullMQ queue
         process_job_wrapper,
         {
             "connection": {
@@ -252,7 +273,7 @@ async def main():
         },
     )
 
-    logger.info(f"Worker started, listening on queue 'generation' at {redis_host}:{redis_port}")
+    logger.info(f"Worker started, listening on queue 'generate-comic' at {redis_host}:{redis_port}")
 
     # Keep worker running
     try:

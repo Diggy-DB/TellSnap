@@ -5,6 +5,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SegmentStatus, JobType, JobStatus } from '@prisma/client';
 import { SubmitSegmentDto, GenerateVideoDto } from './dto';
 
+// Supported comic styles
+type ComicStyle = 'manga' | 'manhwa' | 'western_comic' | 'webtoon';
+
 @Injectable()
 export class SegmentsService {
   constructor(
@@ -103,10 +106,10 @@ export class SegmentsService {
   }
 
   /**
-   * Start video generation for a segment.
+   * Start comic generation for a segment.
    * Creates a job and queues it for processing.
    */
-  async generateVideo(dto: GenerateVideoDto, userId: string) {
+  async generateComic(dto: GenerateVideoDto, userId: string) {
     const segment = await this.prisma.segment.findUnique({
       where: { id: dto.segmentId },
       include: { scene: true },
@@ -118,13 +121,16 @@ export class SegmentsService {
 
     // Check if already generating
     if (segment.status === SegmentStatus.PROCESSING || segment.status === SegmentStatus.QUEUED) {
-      throw new BadRequestException('Video generation already in progress');
+      throw new BadRequestException('Comic generation already in progress');
     }
+
+    // Determine comic style (default to manga)
+    const comicStyle: ComicStyle = (dto as any).comicStyle || 'manga';
 
     // Create a job record
     const job = await this.prisma.job.create({
       data: {
-        type: JobType.GENERATE_SEGMENT,
+        type: JobType.GENERATE_COMIC,
         status: JobStatus.PENDING,
         segmentId: dto.segmentId,
       },
@@ -133,18 +139,20 @@ export class SegmentsService {
     // Update segment status to QUEUED (will become PROCESSING when worker picks it up)
     await this.prisma.segment.update({
       where: { id: dto.segmentId },
-      data: { status: SegmentStatus.QUEUED },
+      data: { 
+        status: SegmentStatus.QUEUED,
+        comicStyle: comicStyle,
+      },
     });
 
     // Queue the job for the Python worker
     await this.generationQueue.add(
-      'generate-segment',
+      'generate-comic',
       {
         jobId: job.id,
         sceneId: segment.sceneId,
         segmentId: dto.segmentId,
-        aspectRatio: dto.aspectRatio || '16:9',
-        durationSeconds: dto.durationSeconds || 8,
+        comicStyle: comicStyle,
       },
       {
         attempts: 3,
@@ -161,21 +169,21 @@ export class SegmentsService {
       jobId: job.id,
       segmentId: dto.segmentId,
       status: 'queued',
-      message: 'Video generation queued successfully',
+      message: 'Comic generation queued successfully',
     };
   }
 
   /**
-   * Submit a segment AND start video generation immediately.
-   * Combines submitSegment and generateVideo.
+   * Submit a segment AND start comic generation immediately.
+   * Combines submitSegment and generateComic.
    */
   async submitAndGenerate(dto: SubmitSegmentDto, userId: string) {
     // Create segment
     const segment = await this.submitSegment(dto, userId);
 
     // Start generation
-    const jobResult = await this.generateVideo(
-      { segmentId: segment.id },
+    const jobResult = await this.generateComic(
+      { segmentId: segment.id, ...(dto as any).comicStyle && { comicStyle: (dto as any).comicStyle } },
       userId,
     );
 
@@ -186,7 +194,7 @@ export class SegmentsService {
   }
 
   /**
-   * Get the status of a video generation job.
+   * Get the status of a comic generation job.
    */
   async getJobStatus(jobId: string) {
     const job = await this.prisma.job.findUnique({
@@ -196,10 +204,10 @@ export class SegmentsService {
           select: {
             id: true,
             status: true,
-            videoUrl: true,
-            hlsUrl: true,
+            imageUrl: true,
             thumbnailUrl: true,
-            duration: true,
+            numPanels: true,
+            comicStyle: true,
           },
         },
       },
@@ -238,7 +246,7 @@ export class SegmentsService {
         orderIndex: true,
         prompt: true,
         expandedScript: true,
-        videoUrl: true,
+        imageUrl: true,
         status: true,
       },
     });
@@ -247,7 +255,7 @@ export class SegmentsService {
   async updateStatus(
     id: string,
     status: SegmentStatus,
-    data?: { videoUrl?: string; hlsUrl?: string; thumbnailUrl?: string; duration?: number },
+    data?: { imageUrl?: string; thumbnailUrl?: string; numPanels?: number },
   ) {
     return this.prisma.segment.update({
       where: { id },

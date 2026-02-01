@@ -1,6 +1,7 @@
 import './globals.css';
 import type { ReactNode } from 'react';
 import Header from '../src/components/Header';
+import { Providers } from '../src/app/providers';
 
 export const metadata = {
   title: 'StoryForge',
@@ -10,9 +11,11 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-movie-bg text-white min-h-screen">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+      <body className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+        <Providers>
+          <Header />
+          <main>{children}</main>
+        </Providers>
       </body>
     </html>
   );

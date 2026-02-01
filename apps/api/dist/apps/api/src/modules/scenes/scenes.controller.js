@@ -34,7 +34,10 @@ let ScenesController = class ScenesController {
         return this.scenesService.findById(id);
     }
     async getPlaylist(id) {
-        return this.scenesService.getPlaylist(id);
+        return this.scenesService.getPages(id);
+    }
+    async getPages(id) {
+        return this.scenesService.getPages(id);
     }
     async getBible(id) {
         return this.sceneBibleService.getForScene(id);
@@ -58,23 +61,31 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get scene by ID' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ScenesController.prototype, "getScene", null);
 __decorate([
     (0, common_1.Get)(':id/playlist'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get scene playlist for video playback' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    (0, swagger_1.ApiOperation)({ summary: 'Get scene playlist for video playback (deprecated)' }),
+    __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ScenesController.prototype, "getPlaylist", null);
 __decorate([
+    (0, common_1.Get)(':id/pages'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all comic pages for a scene' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ScenesController.prototype, "getPages", null);
+__decorate([
     (0, common_1.Get)(':id/bible'),
     (0, swagger_1.ApiOperation)({ summary: 'Get scene bible (continuity data)' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
@@ -95,7 +106,7 @@ __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Continue a scene with a new segment' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),

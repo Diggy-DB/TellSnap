@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -6,8 +6,27 @@ import { RedisService } from '../../redis/redis.service';
 import { CreateSceneDto, ContinueSceneDto, ListScenesQueryDto } from './dto';
 import { SceneStatus, SegmentStatus, JobType, JobStatus } from '@prisma/client';
 
+// Interface for segmentation API response
+interface SegmentInfo {
+  order_index: number;
+  prompt: string;
+  scene_description: string;
+  duration_estimate: number;
+  continuity_notes: string;
+}
+
+interface SegmentationResponse {
+  needs_segmentation: boolean;
+  total_duration_estimate: number;
+  num_segments: number;
+  segments: SegmentInfo[];
+}
+
 @Injectable()
 export class ScenesService {
+  private readonly logger = new Logger(ScenesService.name);
+  private readonly generatorApiUrl = process.env.GENERATOR_API_URL || 'http://localhost:8080';
+
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
@@ -63,9 +82,13 @@ export class ScenesService {
           select: {
             id: true,
             orderIndex: true,
+            prompt: true,
             thumbnailUrl: true,
-            duration: true,
+            imageUrl: true,
+            numPanels: true,
+            comicStyle: true,
             status: true,
+            createdAt: true,
           },
         },
       },
@@ -81,7 +104,7 @@ export class ScenesService {
     return scene;
   }
 
-  async getPlaylist(id: string) {
+  async getPages(id: string) {
     const scene = await this.prisma.scene.findUnique({
       where: { id },
       include: {
@@ -91,9 +114,10 @@ export class ScenesService {
           select: {
             id: true,
             orderIndex: true,
-            hlsUrl: true,
-            duration: true,
+            imageUrl: true,
             thumbnailUrl: true,
+            numPanels: true,
+            comicStyle: true,
           },
         },
       },
@@ -105,8 +129,8 @@ export class ScenesService {
 
     return {
       sceneId: scene.id,
-      totalDuration: scene.totalDuration,
-      segments: scene.segments,
+      totalPages: scene.segments.length,
+      pages: scene.segments,
     };
   }
 
@@ -127,34 +151,104 @@ export class ScenesService {
       data: { sceneId: scene.id },
     });
 
-    // Create initial segment
-    const segment = await this.prisma.segment.create({
-      data: {
-        sceneId: scene.id,
-        createdById: userId,
-        orderIndex: 1,
+    // Analyze script to determine if it needs segmentation
+    let segmentsToCreate: SegmentInfo[] = [];
+    
+    try {
+      const segmentationResult = await this.analyzeScript(dto.initialPrompt);
+      
+      if (segmentationResult && segmentationResult.needs_segmentation) {
+        this.logger.log(`Script needs segmentation: ${segmentationResult.num_segments} segments`);
+        segmentsToCreate = segmentationResult.segments;
+      } else {
+        // Single segment
+        segmentsToCreate = [{
+          order_index: 1,
+          prompt: dto.initialPrompt,
+          scene_description: '',
+          duration_estimate: 8,
+          continuity_notes: '',
+        }];
+      }
+    } catch (error) {
+      this.logger.warn('Script analysis failed, creating single segment', error);
+      // Fallback to single segment if analysis fails
+      segmentsToCreate = [{
+        order_index: 1,
         prompt: dto.initialPrompt,
-        status: SegmentStatus.PENDING,
-      },
-    });
+        scene_description: '',
+        duration_estimate: 8,
+        continuity_notes: '',
+      }];
+    }
 
-    // Create job
-    const job = await this.prisma.job.create({
-      data: {
-        type: JobType.GENERATE_SEGMENT,
+    // Create segments and queue jobs
+    const segments = [];
+    const jobs = [];
+
+    for (const segInfo of segmentsToCreate) {
+      const segment = await this.prisma.segment.create({
+        data: {
+          sceneId: scene.id,
+          createdById: userId,
+          orderIndex: segInfo.order_index,
+          prompt: segInfo.prompt,
+          status: SegmentStatus.PENDING,
+        },
+      });
+      segments.push(segment);
+
+      const job = await this.prisma.job.create({
+        data: {
+          type: JobType.GENERATE_COMIC,
+          segmentId: segment.id,
+          status: JobStatus.PENDING,
+        },
+      });
+      jobs.push(job);
+
+      // Queue job - add delay for subsequent segments to ensure ordering
+      const delay = (segInfo.order_index - 1) * 1000; // 1 second delay between segments
+      await this.generationQueue.add('generate-comic', {
+        jobId: job.id,
+        sceneId: scene.id,
         segmentId: segment.id,
-        status: JobStatus.PENDING,
-      },
-    });
+        comicStyle: 'manga',  // Default style
+      }, { delay });
+      
+      this.logger.log(`Queued comic page ${segInfo.order_index}/${segmentsToCreate.length}`);
+    }
 
-    // Queue job
-    await this.generationQueue.add('generate', {
-      jobId: job.id,
-      sceneId: scene.id,
-      segmentId: segment.id,
-    });
+    return { 
+      scene, 
+      segment: segments[0], 
+      job: jobs[0],
+      totalSegments: segments.length,
+      segments,
+    };
+  }
 
-    return { scene, segment, job };
+  /**
+   * Analyze a script to determine if it needs to be split into segments.
+   */
+  private async analyzeScript(prompt: string): Promise<SegmentationResponse | null> {
+    try {
+      const response = await fetch(`${this.generatorApiUrl}/api/analyze-script`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`Script analysis returned ${response.status}`);
+        return null;
+      }
+
+      return await response.json() as SegmentationResponse;
+    } catch (error) {
+      this.logger.warn('Failed to connect to generator API for script analysis', error);
+      return null;
+    }
   }
 
   async continue(sceneId: string, dto: ContinueSceneDto, userId: string) {
@@ -183,17 +277,18 @@ export class ScenesService {
     // Create job
     const job = await this.prisma.job.create({
       data: {
-        type: JobType.GENERATE_SEGMENT,
+        type: JobType.GENERATE_COMIC,
         segmentId: segment.id,
         status: JobStatus.PENDING,
       },
     });
 
     // Queue job
-    await this.generationQueue.add('generate', {
+    await this.generationQueue.add('generate-comic', {
       jobId: job.id,
       sceneId,
       segmentId: segment.id,
+      comicStyle: 'manga',  // Default style
     });
 
     // Invalidate cache

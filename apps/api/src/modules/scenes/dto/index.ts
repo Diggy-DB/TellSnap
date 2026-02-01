@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional, MinLength, MaxLength, IsInt, Min, Max, IsIn } from 'class-validator';
+import { IsString, IsOptional, MinLength, MaxLength, IsInt, Min, Max, IsIn, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -16,7 +16,7 @@ export class CreateSceneDto {
   description: string;
 
   @ApiPropertyOptional()
-  @IsUUID()
+  @IsString()
   @IsOptional()
   topicId?: string;
 
@@ -29,7 +29,7 @@ export class CreateSceneDto {
 
 export class ContinueSceneDto {
   @ApiProperty()
-  @IsUUID()
+  @IsString()
   parentSegmentId: string;
 
   @ApiProperty({ example: 'The explorers venture deeper into the temple' })
@@ -56,12 +56,12 @@ export class ListScenesQueryDto {
   limit?: number = 20;
 
   @ApiPropertyOptional()
-  @IsUUID()
+  @IsString()
   @IsOptional()
   topicId?: string;
 
   @ApiPropertyOptional()
-  @IsUUID()
+  @IsString()
   @IsOptional()
   categoryId?: string;
 

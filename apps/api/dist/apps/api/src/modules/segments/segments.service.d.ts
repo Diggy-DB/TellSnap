@@ -27,6 +27,9 @@ export declare class SegmentsService {
         orderIndex: number;
         sceneId: string;
         expandedScript: string | null;
+        imageUrl: string | null;
+        numPanels: number | null;
+        comicStyle: string | null;
         videoUrl: string | null;
         hlsUrl: string | null;
         duration: number | null;
@@ -50,6 +53,9 @@ export declare class SegmentsService {
         orderIndex: number;
         sceneId: string;
         expandedScript: string | null;
+        imageUrl: string | null;
+        numPanels: number | null;
+        comicStyle: string | null;
         videoUrl: string | null;
         hlsUrl: string | null;
         duration: number | null;
@@ -77,13 +83,16 @@ export declare class SegmentsService {
         orderIndex: number;
         sceneId: string;
         expandedScript: string | null;
+        imageUrl: string | null;
+        numPanels: number | null;
+        comicStyle: string | null;
         videoUrl: string | null;
         hlsUrl: string | null;
         duration: number | null;
         continuityHash: string | null;
         completedAt: Date | null;
     }>;
-    generateVideo(dto: GenerateVideoDto, userId: string): Promise<{
+    generateComic(dto: GenerateVideoDto, userId: string): Promise<{
         jobId: string;
         segmentId: string;
         status: string;
@@ -111,6 +120,9 @@ export declare class SegmentsService {
             orderIndex: number;
             sceneId: string;
             expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
             videoUrl: string | null;
             hlsUrl: string | null;
             duration: number | null;
@@ -135,9 +147,9 @@ export declare class SegmentsService {
             id: string;
             status: import("@prisma/client").$Enums.SegmentStatus;
             thumbnailUrl: string | null;
-            videoUrl: string | null;
-            hlsUrl: string | null;
-            duration: number | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
         } | null;
         createdAt: Date;
         startedAt: Date | null;
@@ -149,13 +161,12 @@ export declare class SegmentsService {
         prompt: string;
         orderIndex: number;
         expandedScript: string | null;
-        videoUrl: string | null;
+        imageUrl: string | null;
     }[]>;
     updateStatus(id: string, status: SegmentStatus, data?: {
-        videoUrl?: string;
-        hlsUrl?: string;
+        imageUrl?: string;
         thumbnailUrl?: string;
-        duration?: number;
+        numPanels?: number;
     }): Promise<{
         id: string;
         status: import("@prisma/client").$Enums.SegmentStatus;
@@ -167,6 +178,9 @@ export declare class SegmentsService {
         orderIndex: number;
         sceneId: string;
         expandedScript: string | null;
+        imageUrl: string | null;
+        numPanels: number | null;
+        comicStyle: string | null;
         videoUrl: string | null;
         hlsUrl: string | null;
         duration: number | null;

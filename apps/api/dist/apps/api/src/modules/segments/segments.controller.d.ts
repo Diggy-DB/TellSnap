@@ -24,6 +24,9 @@ export declare class SegmentsController {
         orderIndex: number;
         sceneId: string;
         expandedScript: string | null;
+        imageUrl: string | null;
+        numPanels: number | null;
+        comicStyle: string | null;
         videoUrl: string | null;
         hlsUrl: string | null;
         duration: number | null;
@@ -47,6 +50,9 @@ export declare class SegmentsController {
         orderIndex: number;
         sceneId: string;
         expandedScript: string | null;
+        imageUrl: string | null;
+        numPanels: number | null;
+        comicStyle: string | null;
         videoUrl: string | null;
         hlsUrl: string | null;
         duration: number | null;
@@ -74,13 +80,16 @@ export declare class SegmentsController {
         orderIndex: number;
         sceneId: string;
         expandedScript: string | null;
+        imageUrl: string | null;
+        numPanels: number | null;
+        comicStyle: string | null;
         videoUrl: string | null;
         hlsUrl: string | null;
         duration: number | null;
         continuityHash: string | null;
         completedAt: Date | null;
     }>;
-    generateVideo(dto: GenerateVideoDto, req: any): Promise<{
+    generateComic(dto: GenerateVideoDto, req: any): Promise<{
         jobId: string;
         segmentId: string;
         status: string;
@@ -108,6 +117,9 @@ export declare class SegmentsController {
             orderIndex: number;
             sceneId: string;
             expandedScript: string | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
             videoUrl: string | null;
             hlsUrl: string | null;
             duration: number | null;
@@ -132,9 +144,9 @@ export declare class SegmentsController {
             id: string;
             status: import("@prisma/client").$Enums.SegmentStatus;
             thumbnailUrl: string | null;
-            videoUrl: string | null;
-            hlsUrl: string | null;
-            duration: number | null;
+            imageUrl: string | null;
+            numPanels: number | null;
+            comicStyle: string | null;
         } | null;
         createdAt: Date;
         startedAt: Date | null;

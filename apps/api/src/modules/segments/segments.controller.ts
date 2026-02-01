@@ -61,24 +61,24 @@ export class SegmentsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Start video generation for a segment',
+    summary: 'Start comic generation for a segment',
     description:
-      'Queues a segment for video generation. The prompt is expanded using ChatGPT and then video is generated using Google Veo 3.',
+      'Queues a segment for comic page generation. The prompt is expanded using ChatGPT and then comic panels are generated using Google Imagen 3.',
   })
   @ApiResponse({ status: 201, description: 'Generation job created', type: JobStatusDto })
   @ApiResponse({ status: 400, description: 'Generation already in progress' })
   @ApiResponse({ status: 404, description: 'Segment not found' })
-  async generateVideo(@Body() dto: GenerateVideoDto, @Request() req: any) {
-    return this.segmentsService.generateVideo(dto, req.user.sub);
+  async generateComic(@Body() dto: GenerateVideoDto, @Request() req: any) {
+    return this.segmentsService.generateComic(dto, req.user.sub);
   }
 
   @Post('submit-and-generate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Submit a segment and immediately start video generation',
+    summary: 'Submit a segment and immediately start comic generation',
     description:
-      'Combines segment creation and video generation into a single call. Creates the segment, queues it for processing with ChatGPT script expansion, then generates video with Google Veo 3.',
+      'Combines segment creation and comic generation into a single call. Creates the segment, queues it for processing with ChatGPT script expansion, then generates comic panels with Google Imagen 3.',
   })
   @ApiResponse({
     status: 201,

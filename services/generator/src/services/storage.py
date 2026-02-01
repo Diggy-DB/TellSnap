@@ -174,3 +174,115 @@ class StorageService:
                     Bucket=self.bucket,
                     Delete={"Objects": objects},
                 )
+
+    def download_file(self, s3_key: str, local_path: Path) -> bool:
+        """
+        Download a file from S3 to local path.
+        
+        Args:
+            s3_key: S3 key (path) for the file
+            local_path: Path where to save the file locally
+            
+        Returns:
+            True if download succeeded, False otherwise
+        """
+        try:
+            logger.info("Downloading file", key=s3_key, path=str(local_path))
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            self.s3.download_file(self.bucket, s3_key, str(local_path))
+            return local_path.exists()
+        except Exception as e:
+            logger.warning("Failed to download file", key=s3_key, error=str(e))
+            return False
+
+    def get_segment_last_frame_path(self, segment_id: str) -> Path | None:
+        """
+        Download the last frame image for a segment if it exists.
+        
+        Returns:
+            Path to downloaded last frame, or None if not found
+        """
+        import tempfile
+        
+        s3_key = f"segments/{segment_id}/lastframe.jpg"
+        
+        # Check if file exists
+        try:
+            self.s3.head_object(Bucket=self.bucket, Key=s3_key)
+        except:
+            return None
+        
+        # Download to temp file
+        temp_dir = Path(tempfile.mkdtemp())
+        local_path = temp_dir / f"lastframe_{segment_id}.jpg"
+        
+        if self.download_file(s3_key, local_path):
+            return local_path
+        return None
+
+    def get_topic_reference_frames(self, topic_id: str, limit: int = 3) -> list[Path]:
+        """
+        Download reference frames from previous videos for a topic.
+        These are used as style/character references for consistency.
+        
+        Args:
+            topic_id: Topic ID to get frames for
+            limit: Maximum number of reference frames to return
+            
+        Returns:
+            List of paths to downloaded reference frames
+        """
+        import tempfile
+        
+        reference_frames = []
+        temp_dir = Path(tempfile.mkdtemp())
+        
+        # List all reference frames for this topic
+        prefix = f"topics/{topic_id}/references/"
+        
+        try:
+            response = self.s3.list_objects_v2(
+                Bucket=self.bucket,
+                Prefix=prefix,
+                MaxKeys=limit,
+            )
+            
+            if "Contents" not in response:
+                return []
+            
+            for obj in response["Contents"]:
+                key = obj["Key"]
+                filename = key.split("/")[-1]
+                local_path = temp_dir / filename
+                
+                if self.download_file(key, local_path):
+                    reference_frames.append(local_path)
+                    
+                if len(reference_frames) >= limit:
+                    break
+                    
+        except Exception as e:
+            logger.warning("Failed to get topic reference frames", topic_id=topic_id, error=str(e))
+        
+        return reference_frames
+
+    def save_topic_reference_frame(self, topic_id: str, frame_path: Path, segment_id: str) -> str | None:
+        """
+        Save a reference frame for a topic (extracted from a segment's video).
+        
+        Args:
+            topic_id: Topic ID
+            frame_path: Path to the frame image
+            segment_id: Segment ID (for unique naming)
+            
+        Returns:
+            CDN URL of uploaded frame, or None if failed
+        """
+        try:
+            s3_key = f"topics/{topic_id}/references/{segment_id}.jpg"
+            url = self.upload_file(frame_path, s3_key)
+            logger.info("Saved topic reference frame", topic_id=topic_id, segment_id=segment_id)
+            return url
+        except Exception as e:
+            logger.warning("Failed to save topic reference frame", error=str(e))
+            return None

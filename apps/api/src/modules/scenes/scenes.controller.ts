@@ -6,7 +6,6 @@ import {
   Body,
   Query,
   UseGuards,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ScenesService } from './scenes.service';
@@ -32,19 +31,26 @@ export class ScenesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get scene by ID' })
-  async getScene(@Param('id', ParseUUIDPipe) id: string) {
+  async getScene(@Param('id') id: string) {
     return this.scenesService.findById(id);
   }
 
   @Get(':id/playlist')
-  @ApiOperation({ summary: 'Get scene playlist for video playback' })
-  async getPlaylist(@Param('id', ParseUUIDPipe) id: string) {
-    return this.scenesService.getPlaylist(id);
+  @ApiOperation({ summary: 'Get scene playlist for video playback (deprecated)' })
+  async getPlaylist(@Param('id') id: string) {
+    // Redirect to pages for backward compatibility
+    return this.scenesService.getPages(id);
+  }
+
+  @Get(':id/pages')
+  @ApiOperation({ summary: 'Get all comic pages for a scene' })
+  async getPages(@Param('id') id: string) {
+    return this.scenesService.getPages(id);
   }
 
   @Get(':id/bible')
   @ApiOperation({ summary: 'Get scene bible (continuity data)' })
-  async getBible(@Param('id', ParseUUIDPipe) id: string) {
+  async getBible(@Param('id') id: string) {
     return this.sceneBibleService.getForScene(id);
   }
 
@@ -64,7 +70,7 @@ export class ScenesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Continue a scene with a new segment' })
   async continueScene(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: ContinueSceneDto,
     @CurrentUser() user: JwtPayload,
   ) {

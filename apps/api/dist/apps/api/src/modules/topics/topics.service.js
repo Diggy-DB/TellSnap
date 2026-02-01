@@ -84,6 +84,28 @@ let TopicsService = class TopicsService {
             })),
         };
     }
+    async create(data, userId) {
+        const topic = await this.prisma.topic.create({
+            data: {
+                title: data.title,
+                description: data.description || `Stories about ${data.title}`,
+                category: data.category || 'general',
+                createdById: userId,
+                status: client_1.TopicStatus.OPEN,
+            },
+        });
+        await this.redis.del('topics:all');
+        if (topic.category) {
+            await this.redis.del(`topics:${topic.category}`);
+        }
+        return {
+            id: topic.id,
+            title: topic.title,
+            description: topic.description,
+            category: topic.category,
+            createdAt: topic.createdAt,
+        };
+    }
 };
 exports.TopicsService = TopicsService;
 exports.TopicsService = TopicsService = __decorate([
