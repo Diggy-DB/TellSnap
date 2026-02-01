@@ -1,22 +1,22 @@
-import { PrismaService } from '../../prisma/prisma.service';
+import { FirestoreService } from '../../firestore/firestore.service';
 import { RedisService } from '../../redis/redis.service';
 export declare class TopicsService {
-    private prisma;
+    private firestore;
     private redis;
-    constructor(prisma: PrismaService, redis: RedisService);
+    constructor(firestore: FirestoreService, redis: RedisService);
     list(category?: string): Promise<{}>;
     findById(id: string): Promise<{
         id: string;
         title: string;
-        description: string | null;
+        description: string | undefined;
         category: string;
         upvotes: number;
         sceneCount: number;
         createdBy: {
-            username: string;
-            id: string;
-            avatarUrl: string | null;
-        };
+            id: string | undefined;
+            username: string | undefined;
+            avatarUrl: string | undefined;
+        } | null;
         createdAt: Date;
     }>;
     getCategories(): Promise<{
@@ -31,9 +31,9 @@ export declare class TopicsService {
         category?: string;
     }, userId: string): Promise<{
         id: string;
-        title: string;
-        description: string | null;
-        category: string;
-        createdAt: Date;
+        title: string | undefined;
+        description: string | undefined;
+        category: string | undefined;
+        createdAt: Date | undefined;
     }>;
 }

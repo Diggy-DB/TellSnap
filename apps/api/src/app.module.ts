@@ -6,7 +6,7 @@ import { TopicsModule } from './modules/topics/topics.module';
 import { ScenesModule } from './modules/scenes/scenes.module';
 import { SegmentsModule } from './modules/segments/segments.module';
 import { JobsModule } from './modules/jobs/jobs.module';
-import { PrismaModule } from './prisma/prisma.module';
+import { FirestoreModule } from './firestore/firestore.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
@@ -26,7 +26,7 @@ import { RedisModule } from './redis/redis.module';
     }),
 
     // Database & Cache
-    PrismaModule,
+    FirestoreModule,
     RedisModule,
 
     // Feature modules

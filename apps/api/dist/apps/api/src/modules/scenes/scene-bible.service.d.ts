@@ -1,4 +1,4 @@
-import { PrismaService } from '../../prisma/prisma.service';
+import { FirestoreService } from '../../firestore/firestore.service';
 import { RedisService } from '../../redis/redis.service';
 interface Character {
     id: string;
@@ -39,9 +39,9 @@ export interface SceneBibleData {
     }[];
 }
 export declare class SceneBibleService {
-    private prisma;
+    private firestore;
     private redis;
-    constructor(prisma: PrismaService, redis: RedisService);
+    constructor(firestore: FirestoreService, redis: RedisService);
     getForScene(sceneId: string): Promise<SceneBibleData>;
     update(sceneId: string, updates: Partial<SceneBibleData>): Promise<SceneBibleData>;
     addCharacter(sceneId: string, character: Character): Promise<SceneBibleData>;

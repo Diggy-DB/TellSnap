@@ -11,10 +11,10 @@ export declare class TopicsController {
         sub: string;
     }): Promise<{
         id: string;
-        title: string;
-        description: string | null;
-        category: string;
-        createdAt: Date;
+        title: string | undefined;
+        description: string | undefined;
+        category: string | undefined;
+        createdAt: Date | undefined;
     }>;
     getCategories(): Promise<{
         items: {
@@ -25,15 +25,15 @@ export declare class TopicsController {
     getById(id: string): Promise<{
         id: string;
         title: string;
-        description: string | null;
+        description: string | undefined;
         category: string;
         upvotes: number;
         sceneCount: number;
         createdBy: {
-            username: string;
-            id: string;
-            avatarUrl: string | null;
-        };
+            id: string | undefined;
+            username: string | undefined;
+            avatarUrl: string | undefined;
+        } | null;
         createdAt: Date;
     }>;
 }

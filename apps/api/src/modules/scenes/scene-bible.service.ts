@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { FirestoreService } from '../../firestore/firestore.service';
 import { RedisService } from '../../redis/redis.service';
-import { Prisma } from '@prisma/client';
 
 // Types for Scene Bible JSON data
 interface Character {
@@ -38,10 +37,18 @@ export interface SceneBibleData {
   rules: { id: string; rule: string; type: 'hard' | 'soft' }[];
 }
 
+interface SceneBibleDocument extends SceneBibleData {
+  id: string;
+  sceneId: string;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 @Injectable()
 export class SceneBibleService {
   constructor(
-    private prisma: PrismaService,
+    private firestore: FirestoreService,
     private redis: RedisService,
   ) {}
 
@@ -50,20 +57,23 @@ export class SceneBibleService {
     const cached = await this.redis.get(`bible:${sceneId}`);
     if (cached) return cached as SceneBibleData;
 
-    const bible = await this.prisma.sceneBible.findUnique({
-      where: { sceneId },
+    // Query by sceneId
+    const bibles = await this.firestore.findMany<SceneBibleDocument>('sceneBibles', {
+      where: [{ field: 'sceneId', op: '==', value: sceneId }],
+      limit: 1,
     });
 
-    if (!bible) {
+    if (bibles.length === 0) {
       return this.createEmptyBible();
     }
 
+    const bible = bibles[0];
     const data: SceneBibleData = {
-      characters: (bible.characters as unknown) as Record<string, Character>,
-      locations: (bible.locations as unknown) as Record<string, Location>,
-      objects: (bible.objects as unknown) as Record<string, { id: string; name: string; currentOwner?: string }>,
-      timeline: (bible.timeline as unknown) as TimelineEvent[],
-      rules: (bible.rules as unknown) as { id: string; rule: string; type: 'hard' | 'soft' }[],
+      characters: bible.characters || {},
+      locations: bible.locations || {},
+      objects: bible.objects || {},
+      timeline: bible.timeline || [],
+      rules: bible.rules || [],
     };
 
     // Cache for 5 minutes
@@ -73,28 +83,42 @@ export class SceneBibleService {
   }
 
   async update(sceneId: string, updates: Partial<SceneBibleData>): Promise<SceneBibleData> {
-    const updateData: Prisma.SceneBibleUpdateInput = {
-      version: { increment: 1 },
-    };
-
-    if (updates.characters) updateData.characters = updates.characters as unknown as Prisma.InputJsonValue;
-    if (updates.locations) updateData.locations = updates.locations as unknown as Prisma.InputJsonValue;
-    if (updates.objects) updateData.objects = updates.objects as unknown as Prisma.InputJsonValue;
-    if (updates.timeline) updateData.timeline = updates.timeline as unknown as Prisma.InputJsonValue;
-    if (updates.rules) updateData.rules = updates.rules as unknown as Prisma.InputJsonValue;
-
-    await this.prisma.sceneBible.upsert({
-      where: { sceneId },
-      create: {
-        sceneId,
-        characters: (updates.characters || {}) as unknown as Prisma.InputJsonValue,
-        locations: (updates.locations || {}) as unknown as Prisma.InputJsonValue,
-        objects: (updates.objects || {}) as unknown as Prisma.InputJsonValue,
-        timeline: (updates.timeline || []) as unknown as Prisma.InputJsonValue,
-        rules: (updates.rules || {}) as unknown as Prisma.InputJsonValue,
-      },
-      update: updateData,
+    // Check if bible exists
+    const existing = await this.firestore.findMany<SceneBibleDocument>('sceneBibles', {
+      where: [{ field: 'sceneId', op: '==', value: sceneId }],
+      limit: 1,
     });
+
+    if (existing.length === 0) {
+      // Create new bible
+      const newBible: Omit<SceneBibleDocument, 'id'> = {
+        sceneId,
+        characters: updates.characters || {},
+        locations: updates.locations || {},
+        objects: updates.objects || {},
+        timeline: updates.timeline || [],
+        rules: updates.rules || [],
+        version: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await this.firestore.create('sceneBibles', newBible);
+    } else {
+      // Update existing
+      const updateData: Partial<SceneBibleDocument> = {
+        updatedAt: new Date(),
+      };
+      
+      if (updates.characters) updateData.characters = updates.characters;
+      if (updates.locations) updateData.locations = updates.locations;
+      if (updates.objects) updateData.objects = updates.objects;
+      if (updates.timeline) updateData.timeline = updates.timeline;
+      if (updates.rules) updateData.rules = updates.rules;
+
+      await this.firestore.update('sceneBibles', existing[0].id, updateData);
+      // Increment version
+      await this.firestore.increment('sceneBibles', existing[0].id, 'version', 1);
+    }
 
     // Invalidate cache
     await this.redis.del(`bible:${sceneId}`);

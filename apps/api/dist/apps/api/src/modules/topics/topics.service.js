@@ -11,14 +11,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TopicsService = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../../prisma/prisma.service");
+const firestore_service_1 = require("../../firestore/firestore.service");
 const redis_service_1 = require("../../redis/redis.service");
-const client_1 = require("@prisma/client");
 let TopicsService = class TopicsService {
-    prisma;
+    firestore;
     redis;
-    constructor(prisma, redis) {
-        this.prisma = prisma;
+    constructor(firestore, redis) {
+        this.firestore = firestore;
         this.redis = redis;
     }
     async list(category) {
@@ -26,40 +25,51 @@ let TopicsService = class TopicsService {
         const cached = await this.redis.get(cacheKey);
         if (cached)
             return cached;
-        const where = { status: client_1.TopicStatus.OPEN };
-        if (category)
-            where.category = category;
-        const topics = await this.prisma.topic.findMany({
-            where,
-            orderBy: { upvotes: 'desc' },
-            include: {
-                _count: { select: { scenes: true } },
-                createdBy: { select: { id: true, username: true, avatarUrl: true } },
-            },
+        const whereConditions = [
+            { field: 'status', op: '==', value: firestore_service_1.TopicStatus.OPEN },
+        ];
+        if (category) {
+            whereConditions.push({ field: 'category', op: '==', value: category });
+        }
+        const topics = await this.firestore.findMany('topics', {
+            where: whereConditions,
+            orderBy: [{ field: 'upvotes', direction: 'desc' }],
         });
-        const result = topics.map((t) => ({
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            category: t.category,
-            upvotes: t.upvotes,
-            sceneCount: t._count.scenes,
-            createdBy: t.createdBy,
-            createdAt: t.createdAt,
+        const result = await Promise.all(topics.map(async (t) => {
+            const sceneCount = await this.firestore.count('scenes', {
+                where: [{ field: 'topicId', op: '==', value: t.id }],
+            });
+            let createdBy = null;
+            if (t.createdById) {
+                createdBy = await this.firestore.findById('users', t.createdById);
+            }
+            return {
+                id: t.id,
+                title: t.title,
+                description: t.description,
+                category: t.category,
+                upvotes: t.upvotes,
+                sceneCount,
+                createdBy: createdBy
+                    ? { id: createdBy.id, username: createdBy.username, avatarUrl: createdBy.avatarUrl }
+                    : null,
+                createdAt: t.createdAt,
+            };
         }));
-        await this.redis.set(cacheKey, result, 300);
+        await this.redis.set(cacheKey, { items: result }, 300);
         return { items: result };
     }
     async findById(id) {
-        const topic = await this.prisma.topic.findUnique({
-            where: { id },
-            include: {
-                _count: { select: { scenes: true } },
-                createdBy: { select: { id: true, username: true, avatarUrl: true } },
-            },
-        });
+        const topic = await this.firestore.findById('topics', id);
         if (!topic) {
             throw new common_1.NotFoundException('Topic not found');
+        }
+        const sceneCount = await this.firestore.count('scenes', {
+            where: [{ field: 'topicId', op: '==', value: id }],
+        });
+        let createdBy = null;
+        if (topic.createdById) {
+            createdBy = await this.firestore.findById('users', topic.createdById);
         }
         return {
             id: topic.id,
@@ -67,50 +77,54 @@ let TopicsService = class TopicsService {
             description: topic.description,
             category: topic.category,
             upvotes: topic.upvotes,
-            sceneCount: topic._count.scenes,
-            createdBy: topic.createdBy,
+            sceneCount,
+            createdBy: createdBy
+                ? { id: createdBy.id, username: createdBy.username, avatarUrl: createdBy.avatarUrl }
+                : null,
             createdAt: topic.createdAt,
         };
     }
     async getCategories() {
-        const topics = await this.prisma.topic.groupBy({
-            by: ['category'],
-            _count: { category: true },
-        });
+        const topics = await this.firestore.findMany('topics');
+        const categoryMap = new Map();
+        for (const topic of topics) {
+            const count = categoryMap.get(topic.category) || 0;
+            categoryMap.set(topic.category, count + 1);
+        }
         return {
-            items: topics.map((t) => ({
-                name: t.category,
-                topicCount: t._count.category,
+            items: Array.from(categoryMap.entries()).map(([name, topicCount]) => ({
+                name,
+                topicCount,
             })),
         };
     }
     async create(data, userId) {
-        const topic = await this.prisma.topic.create({
-            data: {
-                title: data.title,
-                description: data.description || `Stories about ${data.title}`,
-                category: data.category || 'general',
-                createdById: userId,
-                status: client_1.TopicStatus.OPEN,
-            },
+        const topicId = await this.firestore.create('topics', {
+            title: data.title,
+            description: data.description || `Stories about ${data.title}`,
+            category: data.category || 'general',
+            createdById: userId,
+            status: firestore_service_1.TopicStatus.OPEN,
+            upvotes: 0,
         });
+        const topic = await this.firestore.findById('topics', topicId);
         await this.redis.del('topics:all');
-        if (topic.category) {
+        if (topic?.category) {
             await this.redis.del(`topics:${topic.category}`);
         }
         return {
-            id: topic.id,
-            title: topic.title,
-            description: topic.description,
-            category: topic.category,
-            createdAt: topic.createdAt,
+            id: topicId,
+            title: topic?.title,
+            description: topic?.description,
+            category: topic?.category,
+            createdAt: topic?.createdAt,
         };
     }
 };
 exports.TopicsService = TopicsService;
 exports.TopicsService = TopicsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+    __metadata("design:paramtypes", [firestore_service_1.FirestoreService,
         redis_service_1.RedisService])
 ], TopicsService);
 //# sourceMappingURL=topics.service.js.map

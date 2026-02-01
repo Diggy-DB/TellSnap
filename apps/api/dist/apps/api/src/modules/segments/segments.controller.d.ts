@@ -4,90 +4,81 @@ export declare class SegmentsController {
     private readonly segmentsService;
     constructor(segmentsService: SegmentsService);
     getById(id: string): Promise<{
-        scene: {
-            title: string;
-            id: string;
-        };
         createdBy: {
-            username: string;
-            id: string;
-            avatarUrl: string | null;
-        };
-    } & {
+            id: string | undefined;
+            username: string | undefined;
+            avatarUrl: string | undefined;
+        } | null;
+        scene: {
+            id: string | undefined;
+            title: string | undefined;
+        } | null;
         id: string;
-        status: import("@prisma/client").$Enums.SegmentStatus;
+        sceneId: string;
+        orderIndex: number;
+        prompt: string;
+        expandedScript?: string;
+        status: import("../../firestore").SegmentStatus;
+        imageUrl?: string;
+        thumbnailUrl?: string;
+        numPanels?: number;
+        comicStyle?: string;
+        duration?: number;
+        continuityHash?: string;
+        createdById: string;
         createdAt: Date;
         updatedAt: Date;
-        prompt: string;
-        createdById: string;
-        thumbnailUrl: string | null;
-        orderIndex: number;
-        sceneId: string;
-        expandedScript: string | null;
-        imageUrl: string | null;
-        numPanels: number | null;
-        comicStyle: string | null;
-        videoUrl: string | null;
-        hlsUrl: string | null;
-        duration: number | null;
-        continuityHash: string | null;
-        completedAt: Date | null;
+        completedAt?: Date;
     }>;
-    getForScene(sceneId: string): Promise<({
+    getForScene(sceneId: string): Promise<{
         createdBy: {
-            username: string;
-            id: string;
-            avatarUrl: string | null;
-        };
-    } & {
+            id: string | undefined;
+            username: string | undefined;
+            avatarUrl: string | undefined;
+        } | null;
         id: string;
-        status: import("@prisma/client").$Enums.SegmentStatus;
+        sceneId: string;
+        orderIndex: number;
+        prompt: string;
+        expandedScript?: string;
+        status: import("../../firestore").SegmentStatus;
+        imageUrl?: string;
+        thumbnailUrl?: string;
+        numPanels?: number;
+        comicStyle?: string;
+        duration?: number;
+        continuityHash?: string;
+        createdById: string;
         createdAt: Date;
         updatedAt: Date;
-        prompt: string;
-        createdById: string;
-        thumbnailUrl: string | null;
-        orderIndex: number;
-        sceneId: string;
-        expandedScript: string | null;
-        imageUrl: string | null;
-        numPanels: number | null;
-        comicStyle: string | null;
-        videoUrl: string | null;
-        hlsUrl: string | null;
-        duration: number | null;
-        continuityHash: string | null;
-        completedAt: Date | null;
-    })[]>;
+        completedAt?: Date;
+    }[]>;
     submitSegment(dto: SubmitSegmentDto, req: any): Promise<{
-        scene: {
-            title: string;
-            id: string;
-        };
         createdBy: {
-            username: string;
+            id: string | undefined;
+            username: string | undefined;
+            avatarUrl: string | undefined;
+        } | null;
+        scene: {
             id: string;
-            avatarUrl: string | null;
+            title: string;
         };
-    } & {
-        id: string;
-        status: import("@prisma/client").$Enums.SegmentStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        prompt: string;
-        createdById: string;
-        thumbnailUrl: string | null;
-        orderIndex: number;
-        sceneId: string;
-        expandedScript: string | null;
-        imageUrl: string | null;
-        numPanels: number | null;
-        comicStyle: string | null;
-        videoUrl: string | null;
-        hlsUrl: string | null;
-        duration: number | null;
-        continuityHash: string | null;
-        completedAt: Date | null;
+        id?: string | undefined;
+        sceneId?: string | undefined;
+        orderIndex?: number | undefined;
+        prompt?: string | undefined;
+        expandedScript?: string;
+        status?: import("../../firestore").SegmentStatus | undefined;
+        imageUrl?: string;
+        thumbnailUrl?: string;
+        numPanels?: number;
+        comicStyle?: string;
+        duration?: number;
+        continuityHash?: string;
+        createdById?: string | undefined;
+        createdAt?: Date | undefined;
+        updatedAt?: Date | undefined;
+        completedAt?: Date;
     }>;
     generateComic(dto: GenerateVideoDto, req: any): Promise<{
         jobId: string;
@@ -97,34 +88,31 @@ export declare class SegmentsController {
     }>;
     submitAndGenerate(dto: SubmitSegmentDto, req: any): Promise<{
         segment: {
-            scene: {
-                title: string;
-                id: string;
-            };
             createdBy: {
-                username: string;
+                id: string | undefined;
+                username: string | undefined;
+                avatarUrl: string | undefined;
+            } | null;
+            scene: {
                 id: string;
-                avatarUrl: string | null;
+                title: string;
             };
-        } & {
-            id: string;
-            status: import("@prisma/client").$Enums.SegmentStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            prompt: string;
-            createdById: string;
-            thumbnailUrl: string | null;
-            orderIndex: number;
-            sceneId: string;
-            expandedScript: string | null;
-            imageUrl: string | null;
-            numPanels: number | null;
-            comicStyle: string | null;
-            videoUrl: string | null;
-            hlsUrl: string | null;
-            duration: number | null;
-            continuityHash: string | null;
-            completedAt: Date | null;
+            id?: string | undefined;
+            sceneId?: string | undefined;
+            orderIndex?: number | undefined;
+            prompt?: string | undefined;
+            expandedScript?: string;
+            status?: import("../../firestore").SegmentStatus | undefined;
+            imageUrl?: string;
+            thumbnailUrl?: string;
+            numPanels?: number;
+            comicStyle?: string;
+            duration?: number;
+            continuityHash?: string;
+            createdById?: string | undefined;
+            createdAt?: Date | undefined;
+            updatedAt?: Date | undefined;
+            completedAt?: Date;
         };
         job: {
             jobId: string;
@@ -135,21 +123,21 @@ export declare class SegmentsController {
     }>;
     getJobStatus(jobId: string): Promise<{
         jobId: string;
-        type: import("@prisma/client").$Enums.JobType;
-        status: import("@prisma/client").$Enums.JobStatus;
+        type: import("../../firestore").JobType;
+        status: import("../../firestore").JobStatus;
         progress: number;
-        stage: string | null;
-        error: string | null;
+        stage: string | undefined;
+        error: string | undefined;
         segment: {
-            id: string;
-            status: import("@prisma/client").$Enums.SegmentStatus;
-            thumbnailUrl: string | null;
-            imageUrl: string | null;
-            numPanels: number | null;
-            comicStyle: string | null;
+            id: string | undefined;
+            status: import("../../firestore").SegmentStatus | undefined;
+            imageUrl: string | undefined;
+            thumbnailUrl: string | undefined;
+            numPanels: number | undefined;
+            comicStyle: string | undefined;
         } | null;
         createdAt: Date;
-        startedAt: Date | null;
-        completedAt: Date | null;
+        startedAt: Date | undefined;
+        completedAt: Date | undefined;
     }>;
 }

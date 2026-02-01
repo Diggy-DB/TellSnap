@@ -59,11 +59,11 @@ export declare const createTopicSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    name: string;
     description: string;
+    name: string;
 }, {
-    name: string;
     description: string;
+    name: string;
 }>;
 export type CreateTopicInput = z.infer<typeof createTopicSchema>;
 export declare const createIdeaSchema: z.ZodObject<{
@@ -85,12 +85,12 @@ export declare const paginationSchema: z.ZodObject<{
     limit: z.ZodDefault<z.ZodNumber>;
     cursor: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    page: number;
     limit: number;
+    page: number;
     cursor?: string | undefined;
 }, {
-    cursor?: string | undefined;
-    page?: number | undefined;
     limit?: number | undefined;
+    page?: number | undefined;
+    cursor?: string | undefined;
 }>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

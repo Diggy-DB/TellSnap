@@ -17,40 +17,56 @@ exports.ScenesService = void 0;
 const common_1 = require("@nestjs/common");
 const bullmq_1 = require("@nestjs/bullmq");
 const bullmq_2 = require("bullmq");
-const prisma_service_1 = require("../../prisma/prisma.service");
+const firestore_service_1 = require("../../firestore/firestore.service");
 const redis_service_1 = require("../../redis/redis.service");
-const client_1 = require("@prisma/client");
 let ScenesService = ScenesService_1 = class ScenesService {
-    prisma;
+    firestore;
     redis;
     generationQueue;
     logger = new common_1.Logger(ScenesService_1.name);
     generatorApiUrl = process.env.GENERATOR_API_URL || 'http://localhost:8080';
-    constructor(prisma, redis, generationQueue) {
-        this.prisma = prisma;
+    constructor(firestore, redis, generationQueue) {
+        this.firestore = firestore;
         this.redis = redis;
         this.generationQueue = generationQueue;
     }
     async list(query) {
         const { page = 1, limit = 20, topicId, sort = 'recent' } = query;
         const skip = (page - 1) * limit;
-        const where = { status: client_1.SceneStatus.PUBLISHED };
-        if (topicId)
-            where.topicId = topicId;
-        const orderBy = this.getOrderBy(sort);
-        const [items, total] = await Promise.all([
-            this.prisma.scene.findMany({
-                where,
-                orderBy,
-                skip,
-                take: limit,
-                include: {
-                    topic: { select: { id: true, title: true } },
-                    createdBy: { select: { id: true, username: true, avatarUrl: true } },
-                },
-            }),
-            this.prisma.scene.count({ where }),
-        ]);
+        const whereConditions = [
+            { field: 'status', op: '==', value: firestore_service_1.SceneStatus.PUBLISHED },
+        ];
+        if (topicId) {
+            whereConditions.push({ field: 'topicId', op: '==', value: topicId });
+        }
+        let orderField = 'createdAt';
+        if (sort === 'popular')
+            orderField = 'upvotes';
+        else if (sort === 'trending')
+            orderField = 'viewCount';
+        let scenes = await this.firestore.findMany('scenes', {
+            where: whereConditions,
+            orderBy: [{ field: orderField, direction: 'desc' }],
+        });
+        const total = scenes.length;
+        scenes = scenes.slice(skip, skip + limit);
+        const items = await Promise.all(scenes.map(async (scene) => {
+            let topic = null;
+            let createdBy = null;
+            if (scene.topicId) {
+                topic = await this.firestore.findById('topics', scene.topicId);
+            }
+            if (scene.createdById) {
+                createdBy = await this.firestore.findById('users', scene.createdById);
+            }
+            return {
+                ...scene,
+                topic: topic ? { id: topic.id, title: topic.title } : null,
+                createdBy: createdBy
+                    ? { id: createdBy.id, username: createdBy.username, avatarUrl: createdBy.avatarUrl }
+                    : null,
+            };
+        }));
         return {
             items,
             meta: {
@@ -65,72 +81,87 @@ let ScenesService = ScenesService_1 = class ScenesService {
         const cached = await this.redis.get(`scene:${id}`);
         if (cached)
             return cached;
-        const scene = await this.prisma.scene.findUnique({
-            where: { id },
-            include: {
-                topic: { select: { id: true, title: true } },
-                createdBy: { select: { id: true, username: true, avatarUrl: true } },
-                segments: {
-                    orderBy: { orderIndex: 'asc' },
-                    select: {
-                        id: true,
-                        orderIndex: true,
-                        prompt: true,
-                        thumbnailUrl: true,
-                        imageUrl: true,
-                        numPanels: true,
-                        comicStyle: true,
-                        status: true,
-                        createdAt: true,
-                    },
-                },
-            },
-        });
+        const scene = await this.firestore.findById('scenes', id);
         if (!scene) {
             throw new common_1.NotFoundException('Scene not found');
         }
-        await this.redis.set(`scene:${id}`, scene, 60);
-        return scene;
+        let topic = null;
+        let createdBy = null;
+        if (scene.topicId) {
+            topic = await this.firestore.findById('topics', scene.topicId);
+        }
+        if (scene.createdById) {
+            createdBy = await this.firestore.findById('users', scene.createdById);
+        }
+        const segments = await this.firestore.findMany('segments', {
+            where: [{ field: 'sceneId', op: '==', value: id }],
+            orderBy: [{ field: 'orderIndex', direction: 'asc' }],
+        });
+        const result = {
+            ...scene,
+            topic: topic ? { id: topic.id, title: topic.title } : null,
+            createdBy: createdBy
+                ? { id: createdBy.id, username: createdBy.username, avatarUrl: createdBy.avatarUrl }
+                : null,
+            segments: segments.map((s) => ({
+                id: s.id,
+                orderIndex: s.orderIndex,
+                prompt: s.prompt,
+                thumbnailUrl: s.thumbnailUrl,
+                imageUrl: s.imageUrl,
+                numPanels: s.numPanels,
+                comicStyle: s.comicStyle,
+                status: s.status,
+                createdAt: s.createdAt,
+            })),
+        };
+        await this.redis.set(`scene:${id}`, result, 60);
+        return result;
     }
     async getPages(id) {
-        const scene = await this.prisma.scene.findUnique({
-            where: { id },
-            include: {
-                segments: {
-                    where: { status: client_1.SegmentStatus.COMPLETED },
-                    orderBy: { orderIndex: 'asc' },
-                    select: {
-                        id: true,
-                        orderIndex: true,
-                        imageUrl: true,
-                        thumbnailUrl: true,
-                        numPanels: true,
-                        comicStyle: true,
-                    },
-                },
-            },
-        });
+        const scene = await this.firestore.findById('scenes', id);
         if (!scene) {
             throw new common_1.NotFoundException('Scene not found');
         }
+        const segments = await this.firestore.findMany('segments', {
+            where: [
+                { field: 'sceneId', op: '==', value: id },
+                { field: 'status', op: '==', value: firestore_service_1.SegmentStatus.COMPLETED },
+            ],
+            orderBy: [{ field: 'orderIndex', direction: 'asc' }],
+        });
         return {
             sceneId: scene.id,
-            totalPages: scene.segments.length,
-            pages: scene.segments,
+            totalPages: segments.length,
+            pages: segments.map((s) => ({
+                id: s.id,
+                orderIndex: s.orderIndex,
+                imageUrl: s.imageUrl,
+                thumbnailUrl: s.thumbnailUrl,
+                numPanels: s.numPanels,
+                comicStyle: s.comicStyle,
+            })),
         };
     }
     async create(dto, userId) {
-        const scene = await this.prisma.scene.create({
-            data: {
-                title: dto.title,
-                description: dto.description,
-                topicId: dto.topicId,
-                createdById: userId,
-                status: client_1.SceneStatus.DRAFT,
-            },
+        const sceneId = await this.firestore.create('scenes', {
+            title: dto.title,
+            description: dto.description,
+            topicId: dto.topicId,
+            createdById: userId,
+            status: firestore_service_1.SceneStatus.DRAFT,
+            segmentCount: 0,
+            totalDuration: 0,
         });
-        await this.prisma.sceneBible.create({
-            data: { sceneId: scene.id },
+        const scene = await this.firestore.findById('scenes', sceneId);
+        await this.firestore.create('sceneBibles', {
+            sceneId,
+            characters: [],
+            locations: [],
+            objects: [],
+            timeline: [],
+            rules: [],
+            version: 1,
         });
         let segmentsToCreate = [];
         try {
@@ -162,33 +193,40 @@ let ScenesService = ScenesService_1 = class ScenesService {
         const segments = [];
         const jobs = [];
         for (const segInfo of segmentsToCreate) {
-            const segment = await this.prisma.segment.create({
-                data: {
-                    sceneId: scene.id,
-                    createdById: userId,
-                    orderIndex: segInfo.order_index,
-                    prompt: segInfo.prompt,
-                    status: client_1.SegmentStatus.PENDING,
-                },
+            const segmentId = await this.firestore.create('segments', {
+                sceneId,
+                createdById: userId,
+                orderIndex: segInfo.order_index,
+                prompt: segInfo.prompt,
+                status: firestore_service_1.SegmentStatus.PENDING,
             });
-            segments.push(segment);
-            const job = await this.prisma.job.create({
-                data: {
-                    type: client_1.JobType.GENERATE_COMIC,
-                    segmentId: segment.id,
-                    status: client_1.JobStatus.PENDING,
-                },
+            const segment = await this.firestore.findById('segments', segmentId);
+            if (segment)
+                segments.push(segment);
+            const jobId = await this.firestore.create('jobs', {
+                type: firestore_service_1.JobType.GENERATE_COMIC,
+                segmentId,
+                status: firestore_service_1.JobStatus.PENDING,
+                priority: 0,
+                progress: 0,
+                attempts: 0,
+                maxAttempts: 3,
             });
-            jobs.push(job);
+            const job = await this.firestore.findById('jobs', jobId);
+            if (job)
+                jobs.push(job);
             const delay = (segInfo.order_index - 1) * 1000;
             await this.generationQueue.add('generate-comic', {
-                jobId: job.id,
-                sceneId: scene.id,
-                segmentId: segment.id,
+                jobId,
+                sceneId,
+                segmentId,
                 comicStyle: 'manga',
             }, { delay });
             this.logger.log(`Queued comic page ${segInfo.order_index}/${segmentsToCreate.length}`);
         }
+        await this.firestore.update('scenes', sceneId, {
+            segmentCount: segments.length,
+        });
         return {
             scene,
             segment: segments[0],
@@ -216,34 +254,38 @@ let ScenesService = ScenesService_1 = class ScenesService {
         }
     }
     async continue(sceneId, dto, userId) {
-        const scene = await this.prisma.scene.findUnique({
-            where: { id: sceneId },
-            include: { segments: { orderBy: { orderIndex: 'desc' }, take: 1 } },
-        });
+        const scene = await this.firestore.findById('scenes', sceneId);
         if (!scene) {
             throw new common_1.NotFoundException('Scene not found');
         }
-        const lastOrderIndex = scene.segments[0]?.orderIndex || 0;
-        const segment = await this.prisma.segment.create({
-            data: {
-                sceneId,
-                createdById: userId,
-                orderIndex: lastOrderIndex + 1,
-                prompt: dto.prompt,
-                status: client_1.SegmentStatus.PENDING,
-            },
+        const segments = await this.firestore.findMany('segments', {
+            where: [{ field: 'sceneId', op: '==', value: sceneId }],
+            orderBy: [{ field: 'orderIndex', direction: 'desc' }],
+            limit: 1,
         });
-        const job = await this.prisma.job.create({
-            data: {
-                type: client_1.JobType.GENERATE_COMIC,
-                segmentId: segment.id,
-                status: client_1.JobStatus.PENDING,
-            },
-        });
-        await this.generationQueue.add('generate-comic', {
-            jobId: job.id,
+        const lastOrderIndex = segments[0]?.orderIndex || 0;
+        const segmentId = await this.firestore.create('segments', {
             sceneId,
-            segmentId: segment.id,
+            createdById: userId,
+            orderIndex: lastOrderIndex + 1,
+            prompt: dto.prompt,
+            status: firestore_service_1.SegmentStatus.PENDING,
+        });
+        const segment = await this.firestore.findById('segments', segmentId);
+        const jobId = await this.firestore.create('jobs', {
+            type: firestore_service_1.JobType.GENERATE_COMIC,
+            segmentId,
+            status: firestore_service_1.JobStatus.PENDING,
+            priority: 0,
+            progress: 0,
+            attempts: 0,
+            maxAttempts: 3,
+        });
+        const job = await this.firestore.findById('jobs', jobId);
+        await this.generationQueue.add('generate-comic', {
+            jobId,
+            sceneId,
+            segmentId,
             comicStyle: 'manga',
         });
         await this.redis.del(`scene:${sceneId}`);
@@ -252,12 +294,12 @@ let ScenesService = ScenesService_1 = class ScenesService {
     getOrderBy(sort) {
         switch (sort) {
             case 'popular':
-                return { upvotes: 'desc' };
+                return 'upvotes';
             case 'trending':
-                return [{ viewCount: 'desc' }, { createdAt: 'desc' }];
+                return 'viewCount';
             case 'recent':
             default:
-                return { createdAt: 'desc' };
+                return 'createdAt';
         }
     }
 };
@@ -265,7 +307,7 @@ exports.ScenesService = ScenesService;
 exports.ScenesService = ScenesService = ScenesService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(2, (0, bullmq_1.InjectQueue)('generation')),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+    __metadata("design:paramtypes", [firestore_service_1.FirestoreService,
         redis_service_1.RedisService,
         bullmq_2.Queue])
 ], ScenesService);

@@ -15,7 +15,7 @@ const topics_module_1 = require("./modules/topics/topics.module");
 const scenes_module_1 = require("./modules/scenes/scenes.module");
 const segments_module_1 = require("./modules/segments/segments.module");
 const jobs_module_1 = require("./modules/jobs/jobs.module");
-const prisma_module_1 = require("./prisma/prisma.module");
+const firestore_module_1 = require("./firestore/firestore.module");
 const redis_module_1 = require("./redis/redis.module");
 let AppModule = class AppModule {
 };
@@ -33,7 +33,7 @@ exports.AppModule = AppModule = __decorate([
                     port: parseInt(process.env.REDIS_PORT || '6379'),
                 },
             }),
-            prisma_module_1.PrismaModule,
+            firestore_module_1.FirestoreModule,
             redis_module_1.RedisModule,
             auth_module_1.AuthModule,
             topics_module_1.TopicsModule,

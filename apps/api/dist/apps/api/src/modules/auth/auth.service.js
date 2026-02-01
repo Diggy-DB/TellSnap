@@ -45,47 +45,56 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
-const prisma_service_1 = require("../../prisma/prisma.service");
+const firestore_service_1 = require("../../firestore/firestore.service");
 const redis_service_1 = require("../../redis/redis.service");
-const client_1 = require("@prisma/client");
 const crypto = __importStar(require("crypto"));
+var UserRole;
+(function (UserRole) {
+    UserRole["USER"] = "USER";
+    UserRole["ADMIN"] = "ADMIN";
+})(UserRole || (UserRole = {}));
 let AuthService = class AuthService {
-    prisma;
+    firestore;
     jwt;
     redis;
-    constructor(prisma, jwt, redis) {
-        this.prisma = prisma;
+    constructor(firestore, jwt, redis) {
+        this.firestore = firestore;
         this.jwt = jwt;
         this.redis = redis;
     }
     async signup(dto) {
-        const existing = await this.prisma.user.findUnique({
-            where: { email: dto.email },
+        const existingByEmail = await this.firestore.findMany('users', {
+            where: [{ field: 'email', op: '==', value: dto.email }],
+            limit: 1,
         });
-        if (existing) {
+        if (existingByEmail.length > 0) {
             throw new common_1.ConflictException('Email already registered');
         }
-        const existingUsername = await this.prisma.user.findUnique({
-            where: { username: dto.username },
+        const existingByUsername = await this.firestore.findMany('users', {
+            where: [{ field: 'username', op: '==', value: dto.username }],
+            limit: 1,
         });
-        if (existingUsername) {
+        if (existingByUsername.length > 0) {
             throw new common_1.ConflictException('Username already taken');
         }
         const passwordHash = await this.hashPassword(dto.password);
-        const user = await this.prisma.user.create({
-            data: {
-                email: dto.email,
-                username: dto.username,
-                passwordHash,
-                role: client_1.UserRole.USER,
-            },
+        const userId = await this.firestore.create('users', {
+            email: dto.email,
+            username: dto.username,
+            passwordHash,
+            role: UserRole.USER,
+            createdAt: new Date(),
+            updatedAt: new Date(),
         });
+        const user = await this.firestore.findById('users', userId);
         return this.generateTokens(user);
     }
     async login(dto) {
-        const user = await this.prisma.user.findUnique({
-            where: { email: dto.email },
+        const users = await this.firestore.findMany('users', {
+            where: [{ field: 'email', op: '==', value: dto.email }],
+            limit: 1,
         });
+        const user = users[0];
         if (!user || !user.passwordHash) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
@@ -104,9 +113,7 @@ let AuthService = class AuthService {
             if (isRevoked) {
                 throw new common_1.UnauthorizedException('Token revoked');
             }
-            const user = await this.prisma.user.findUnique({
-                where: { id: payload.sub },
-            });
+            const user = await this.firestore.findById('users', payload.sub);
             if (!user) {
                 throw new common_1.UnauthorizedException('User not found');
             }
@@ -121,22 +128,19 @@ let AuthService = class AuthService {
         return { success: true };
     }
     async getUser(userId) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                id: true,
-                email: true,
-                username: true,
-                displayName: true,
-                avatarUrl: true,
-                role: true,
-                createdAt: true,
-            },
-        });
+        const user = await this.firestore.findById('users', userId);
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
-        return user;
+        return {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
+            role: user.role,
+            createdAt: user.createdAt,
+        };
     }
     async generateTokens(user) {
         const jti = crypto.randomUUID();
@@ -175,7 +179,7 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+    __metadata("design:paramtypes", [firestore_service_1.FirestoreService,
         jwt_1.JwtService,
         redis_service_1.RedisService])
 ], AuthService);

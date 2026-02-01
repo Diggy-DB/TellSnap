@@ -1,35 +1,42 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../../prisma/prisma.service';
+import { FirestoreService, User } from '../../firestore/firestore.service';
 import { RedisService } from '../../redis/redis.service';
 import { LoginDto, SignupDto } from './dto';
-import { UserRole } from '@prisma/client';
 import * as crypto from 'crypto';
+
+// Define UserRole locally since we're not using Prisma
+enum UserRole {
+  USER = 'USER',
+  ADMIN = 'ADMIN',
+}
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
+    private firestore: FirestoreService,
     private jwt: JwtService,
     private redis: RedisService,
   ) {}
 
   async signup(dto: SignupDto) {
     // Check if email already exists
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+    const existingByEmail = await this.firestore.findMany<User>('users', {
+      where: [{ field: 'email', op: '==', value: dto.email }],
+      limit: 1,
     });
 
-    if (existing) {
+    if (existingByEmail.length > 0) {
       throw new ConflictException('Email already registered');
     }
 
     // Check if username exists
-    const existingUsername = await this.prisma.user.findUnique({
-      where: { username: dto.username },
+    const existingByUsername = await this.firestore.findMany<User>('users', {
+      where: [{ field: 'username', op: '==', value: dto.username }],
+      limit: 1,
     });
 
-    if (existingUsername) {
+    if (existingByUsername.length > 0) {
       throw new ConflictException('Username already taken');
     }
 
@@ -37,23 +44,28 @@ export class AuthService {
     const passwordHash = await this.hashPassword(dto.password);
 
     // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        username: dto.username,
-        passwordHash,
-        role: UserRole.USER,
-      },
+    const userId = await this.firestore.create<User>('users', {
+      email: dto.email,
+      username: dto.username,
+      passwordHash,
+      role: UserRole.USER,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
+    const user = await this.firestore.findById<User>('users', userId);
+
     // Generate tokens
-    return this.generateTokens(user);
+    return this.generateTokens(user!);
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+    const users = await this.firestore.findMany<User>('users', {
+      where: [{ field: 'email', op: '==', value: dto.email }],
+      limit: 1,
     });
+
+    const user = users[0];
 
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
@@ -80,9 +92,7 @@ export class AuthService {
         throw new UnauthorizedException('Token revoked');
       }
 
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-      });
+      const user = await this.firestore.findById<User>('users', payload.sub);
 
       if (!user) {
         throw new UnauthorizedException('User not found');
@@ -101,27 +111,24 @@ export class AuthService {
   }
 
   async getUser(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        displayName: true,
-        avatarUrl: true,
-        role: true,
-        createdAt: true,
-      },
-    });
+    const user = await this.firestore.findById<User>('users', userId);
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
   }
 
-  private async generateTokens(user: { id: string; email: string; role: UserRole }) {
+  private async generateTokens(user: { id: string; email: string; role: string }) {
     const jti = crypto.randomUUID();
 
     const accessToken = this.jwt.sign(

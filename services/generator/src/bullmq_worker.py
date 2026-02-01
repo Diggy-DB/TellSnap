@@ -3,6 +3,7 @@ BullMQ Worker for processing comic generation jobs from NestJS.
 
 This worker connects to the same Redis queue that NestJS uses
 and processes comic/manga page generation jobs.
+Uses Google Firestore for database and Google Cloud Storage for files.
 """
 
 import asyncio
@@ -17,8 +18,8 @@ import structlog
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config import get_settings
-from src.services.database import DatabaseService
-from src.services.storage import StorageService
+from src.services.firestore_db import FirestoreService
+from src.services.gcs_storage import GCSStorageService
 from src.services.script_expander import ScriptExpander, PreviousSegment
 from src.services.comic_generator import ComicGenerator
 
@@ -26,7 +27,7 @@ logger = structlog.get_logger()
 settings = get_settings()
 
 
-def update_progress(db: DatabaseService, job_id: str, progress: int, stage: str):
+def update_progress(db: FirestoreService, job_id: str, progress: int, stage: str):
     """Update job progress in database."""
     db.update_job(job_id, {
         "progress": progress,
@@ -39,12 +40,12 @@ async def process_generation_job(job: Job, token: str) -> dict:
     Process a comic generation job.
     
     Pipeline:
-    1. Fetch segment and scene context
+    1. Fetch segment and scene context from Firestore
     2. Expand script via OpenAI ChatGPT into panel descriptions
     3. Generate comic panels via Google Imagen 3
     4. Compose into a comic page
-    5. Upload to S3
-    6. Update database
+    5. Upload to Google Cloud Storage
+    6. Update Firestore
     """
     data = job.data
     job_id = data.get("jobId")
@@ -56,8 +57,8 @@ async def process_generation_job(job: Job, token: str) -> dict:
     log = logger.bind(job_id=job_id, scene_id=scene_id, segment_id=segment_id)
     log.info("Processing comic generation job", style=comic_style)
 
-    db = DatabaseService()
-    storage = StorageService()
+    db = FirestoreService()
+    storage = GCSStorageService()
 
     try:
         # Update job status to PROCESSING
@@ -148,22 +149,24 @@ async def process_generation_job(job: Job, token: str) -> dict:
         update_progress(db, job_id, 70, "comic_generated")
         log.info("Comic page generated", page_path=str(comic_result.page_path), num_panels=comic_result.num_panels)
 
-        # Stage 3: Upload to S3
-        log.info("Stage 3: Uploading to S3")
+        # Stage 3: Upload to Google Cloud Storage
+        log.info("Stage 3: Uploading to Google Cloud Storage")
         update_progress(db, job_id, 80, "uploading")
 
-        image_key = f"segments/{segment_id}/page.png"
-        thumbnail_key = f"segments/{segment_id}/thumbnail.jpg"
-
-        image_url = storage.upload_file(comic_result.page_path, image_key)
-        thumbnail_url = None
-        if comic_result.thumbnail_path:
-            thumbnail_url = storage.upload_file(comic_result.thumbnail_path, thumbnail_key)
+        upload_result = storage.upload_comic_page(
+            segment_id=segment_id,
+            scene_id=scene_id,
+            image_path=comic_result.page_path,
+            thumbnail_path=comic_result.thumbnail_path,
+        )
+        
+        image_url = upload_result.image_url
+        thumbnail_url = upload_result.thumbnail_url
 
         # Upload individual panels for potential reuse
         for idx, panel_path in enumerate(comic_result.panel_paths):
-            panel_key = f"segments/{segment_id}/panel_{idx}.png"
-            storage.upload_file(panel_path, panel_key)
+            panel_key = f"scenes/{scene_id}/segments/{segment_id}/panel_{idx}.png"
+            storage.upload_image(panel_path, panel_key)
 
         update_progress(db, job_id, 90, "uploaded")
 
@@ -242,11 +245,11 @@ async def main():
             logger.info(f"Skipping already processed job", job_id=job_id)
             return {"status": "skipped", "reason": "already_processed"}
         
-        # Also check database status
-        db = DatabaseService()
+        # Also check Firestore status
+        db = FirestoreService()
         existing_job = db.get_job(job_id)
         if existing_job and existing_job.get("status") == "COMPLETED":
-            logger.info(f"Skipping completed job from database", job_id=job_id)
+            logger.info(f"Skipping completed job from Firestore", job_id=job_id)
             processed_jobs.add(job_id)
             return {"status": "skipped", "reason": "already_completed"}
         

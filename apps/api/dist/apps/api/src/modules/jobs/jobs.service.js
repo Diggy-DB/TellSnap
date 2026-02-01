@@ -16,15 +16,14 @@ exports.JobsService = void 0;
 const common_1 = require("@nestjs/common");
 const bullmq_1 = require("@nestjs/bullmq");
 const bullmq_2 = require("bullmq");
-const prisma_service_1 = require("../../prisma/prisma.service");
+const firestore_service_1 = require("../../firestore/firestore.service");
 const redis_service_1 = require("../../redis/redis.service");
-const client_1 = require("@prisma/client");
 let JobsService = class JobsService {
-    prisma;
+    firestore;
     redis;
     generationQueue;
-    constructor(prisma, redis, generationQueue) {
-        this.prisma = prisma;
+    constructor(firestore, redis, generationQueue) {
+        this.firestore = firestore;
         this.redis = redis;
         this.generationQueue = generationQueue;
     }
@@ -32,14 +31,16 @@ let JobsService = class JobsService {
         const cached = await this.redis.get(`job:${id}`);
         if (cached)
             return cached;
-        const job = await this.prisma.job.findUnique({
-            where: { id },
-            include: {
-                segment: { select: { id: true, sceneId: true } },
-            },
-        });
+        const job = await this.firestore.findById('jobs', id);
         if (!job) {
             throw new common_1.NotFoundException('Job not found');
+        }
+        let segment = null;
+        if (job.segmentId) {
+            const seg = await this.firestore.findById('segments', job.segmentId);
+            if (seg) {
+                segment = { id: seg.id, sceneId: seg.sceneId };
+            }
         }
         const status = {
             id: job.id,
@@ -51,45 +52,41 @@ let JobsService = class JobsService {
             createdAt: job.createdAt,
             startedAt: job.startedAt,
             completedAt: job.completedAt,
-            segment: job.segment,
+            segment,
         };
-        const isActive = job.status === client_1.JobStatus.PENDING ||
-            job.status === client_1.JobStatus.QUEUED ||
-            job.status === client_1.JobStatus.PROCESSING;
+        const isActive = job.status === firestore_service_1.JobStatus.PENDING ||
+            job.status === firestore_service_1.JobStatus.QUEUED ||
+            job.status === firestore_service_1.JobStatus.PROCESSING;
         if (isActive) {
             await this.redis.set(`job:${id}`, status, 30);
         }
         return status;
     }
     async updateProgress(id, progress, stage) {
-        const job = await this.prisma.job.update({
-            where: { id },
-            data: {
-                progress,
-                stage,
-                status: client_1.JobStatus.PROCESSING,
-                startedAt: new Date(),
-            },
+        await this.firestore.update('jobs', id, {
+            progress,
+            stage,
+            status: firestore_service_1.JobStatus.PROCESSING,
+            startedAt: new Date(),
         });
+        const job = await this.firestore.findById('jobs', id);
         await this.redis.publish('job:progress', {
             jobId: id,
             progress,
             stage,
-            status: client_1.JobStatus.PROCESSING,
+            status: firestore_service_1.JobStatus.PROCESSING,
         });
         await this.redis.set(`job:${id}`, job, 30);
         return job;
     }
     async complete(id, result) {
-        const job = await this.prisma.job.update({
-            where: { id },
-            data: {
-                status: client_1.JobStatus.COMPLETED,
-                progress: 100,
-                result,
-                completedAt: new Date(),
-            },
+        await this.firestore.update('jobs', id, {
+            status: firestore_service_1.JobStatus.COMPLETED,
+            progress: 100,
+            result,
+            completedAt: new Date(),
         });
+        const job = await this.firestore.findById('jobs', id);
         await this.redis.publish('job:complete', {
             jobId: id,
             success: true,
@@ -99,15 +96,13 @@ let JobsService = class JobsService {
         return job;
     }
     async fail(id, error) {
-        const job = await this.prisma.job.update({
-            where: { id },
-            data: {
-                status: client_1.JobStatus.FAILED,
-                error,
-                completedAt: new Date(),
-                attempts: { increment: 1 },
-            },
+        await this.firestore.increment('jobs', id, 'attempts', 1);
+        await this.firestore.update('jobs', id, {
+            status: firestore_service_1.JobStatus.FAILED,
+            error,
+            completedAt: new Date(),
         });
+        const job = await this.firestore.findById('jobs', id);
         await this.redis.publish('job:complete', {
             jobId: id,
             success: false,
@@ -117,54 +112,48 @@ let JobsService = class JobsService {
         return job;
     }
     async retry(id) {
-        const job = await this.prisma.job.findUnique({
-            where: { id },
-            include: { segment: true },
-        });
+        const job = await this.firestore.findById('jobs', id);
         if (!job) {
             throw new common_1.NotFoundException('Job not found');
         }
-        if (job.status !== client_1.JobStatus.FAILED) {
+        if (job.status !== firestore_service_1.JobStatus.FAILED) {
             throw new common_1.BadRequestException('Only failed jobs can be retried');
         }
         if (job.attempts >= job.maxAttempts) {
             throw new common_1.BadRequestException('Maximum retry attempts exceeded');
         }
-        await this.prisma.job.update({
-            where: { id },
-            data: {
-                status: client_1.JobStatus.PENDING,
-                progress: 0,
-                stage: null,
-                error: null,
-                startedAt: null,
-                completedAt: null,
-            },
+        let sceneId;
+        if (job.segmentId) {
+            const segment = await this.firestore.findById('segments', job.segmentId);
+            sceneId = segment?.sceneId;
+        }
+        await this.firestore.update('jobs', id, {
+            status: firestore_service_1.JobStatus.PENDING,
+            progress: 0,
+            stage: undefined,
+            error: undefined,
+            startedAt: undefined,
+            completedAt: undefined,
         });
         await this.generationQueue.add('generate', {
             jobId: job.id,
             segmentId: job.segmentId,
-            sceneId: job.segment?.sceneId,
+            sceneId,
         });
         return { success: true };
     }
     async cancel(id) {
-        const job = await this.prisma.job.findUnique({
-            where: { id },
-        });
+        const job = await this.firestore.findById('jobs', id);
         if (!job) {
             throw new common_1.NotFoundException('Job not found');
         }
-        const isCancelable = job.status === client_1.JobStatus.PENDING || job.status === client_1.JobStatus.QUEUED;
+        const isCancelable = job.status === firestore_service_1.JobStatus.PENDING || job.status === firestore_service_1.JobStatus.QUEUED;
         if (!isCancelable) {
             throw new common_1.BadRequestException('Only pending jobs can be cancelled');
         }
-        await this.prisma.job.update({
-            where: { id },
-            data: {
-                status: client_1.JobStatus.CANCELLED,
-                completedAt: new Date(),
-            },
+        await this.firestore.update('jobs', id, {
+            status: firestore_service_1.JobStatus.CANCELLED,
+            completedAt: new Date(),
         });
         return { success: true };
     }
@@ -173,7 +162,7 @@ exports.JobsService = JobsService;
 exports.JobsService = JobsService = __decorate([
     (0, common_1.Injectable)(),
     __param(2, (0, bullmq_1.InjectQueue)('generation')),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+    __metadata("design:paramtypes", [firestore_service_1.FirestoreService,
         redis_service_1.RedisService,
         bullmq_2.Queue])
 ], JobsService);

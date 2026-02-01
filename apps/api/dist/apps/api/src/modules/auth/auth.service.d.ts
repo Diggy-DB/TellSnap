@@ -1,12 +1,12 @@
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../../prisma/prisma.service';
+import { FirestoreService } from '../../firestore/firestore.service';
 import { RedisService } from '../../redis/redis.service';
 import { LoginDto, SignupDto } from './dto';
 export declare class AuthService {
-    private prisma;
+    private firestore;
     private jwt;
     private redis;
-    constructor(prisma: PrismaService, jwt: JwtService, redis: RedisService);
+    constructor(firestore: FirestoreService, jwt: JwtService, redis: RedisService);
     signup(dto: SignupDto): Promise<{
         accessToken: string;
         refreshToken: string;
@@ -14,7 +14,7 @@ export declare class AuthService {
         user: {
             id: string;
             email: string;
-            role: import("@prisma/client").$Enums.UserRole;
+            role: string;
         };
     }>;
     login(dto: LoginDto): Promise<{
@@ -24,7 +24,7 @@ export declare class AuthService {
         user: {
             id: string;
             email: string;
-            role: import("@prisma/client").$Enums.UserRole;
+            role: string;
         };
     }>;
     refreshToken(refreshToken: string): Promise<{
@@ -34,19 +34,19 @@ export declare class AuthService {
         user: {
             id: string;
             email: string;
-            role: import("@prisma/client").$Enums.UserRole;
+            role: string;
         };
     }>;
     logout(userId: string): Promise<{
         success: boolean;
     }>;
     getUser(userId: string): Promise<{
+        id: string;
         email: string;
         username: string;
-        id: string;
-        displayName: string | null;
-        avatarUrl: string | null;
-        role: import("@prisma/client").$Enums.UserRole;
+        displayName: string | undefined;
+        avatarUrl: string | undefined;
+        role: string;
         createdAt: Date;
     }>;
     private generateTokens;
