@@ -112,10 +112,6 @@ class ApiClient {
     return this.request<ScenePlaylist>(`/scenes/${id}/playlist`);
   }
 
-  async getSceneBible(id: string) {
-    return this.request<SceneBible>(`/scenes/${id}/bible`);
-  }
-
   // Jobs
   async getJob(id: string) {
     return this.request<Job>(`/jobs/${id}`);
@@ -170,11 +166,6 @@ interface ScenePlaylist {
   sceneId: string;
   totalDuration: number;
   segments: { id: string; hlsUrl: string; duration: number }[];
-}
-
-interface SceneBible {
-  sceneId: string;
-  characters: Record<string, unknown>;
 }
 
 interface PaginationMeta {

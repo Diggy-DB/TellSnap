@@ -1,260 +1,103 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-
-interface Topic {
-  id: string;
-  title: string;
-  slug: string;
-  description: string;
-}
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { useState } from 'react';
 
 export default function CreatePage() {
-  const router = useRouter();
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [useCustomTopic, setUseCustomTopic] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    topicId: '',
-    customTopic: '',
-    customTopicDescription: '',
-    initialPrompt: '',
-  });
+  const [prompt, setPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const res = await fetch(`${API_BASE}/topics`);
-        const data = await res.json();
-        setTopics(data.data || []);
-      } catch (error) {
-        console.error('Failed to fetch topics:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchTopics();
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Please login first');
-      router.push('/login');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      let topicId = formData.topicId;
-
-      // If using custom topic, create it first
-      if (useCustomTopic && formData.customTopic) {
-        const topicRes = await fetch(`${API_BASE}/topics`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            title: formData.customTopic,
-            description: formData.customTopicDescription || `Stories about ${formData.customTopic}`,
-          }),
-        });
-
-        if (topicRes.ok) {
-          const topicData = await topicRes.json();
-          console.log('Created topic:', topicData);
-          topicId = topicData.id || topicData.data?.id;
-          if (!topicId) {
-            alert('Failed to get topic ID from response');
-            setSubmitting(false);
-            return;
-          }
-        } else {
-          const error = await topicRes.json();
-          alert(error.message || 'Failed to create topic');
-          setSubmitting(false);
-          return;
-        }
-      }
-
-      // Validate topicId before creating scene
-      if (!topicId) {
-        alert('Please select or create a topic');
-        setSubmitting(false);
-        return;
-      }
-
-      console.log('Creating scene with topicId:', topicId);
-      const res = await fetch(`${API_BASE}/scenes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          topicId,
-          initialPrompt: formData.initialPrompt,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        // API returns { scene, segment, job } directly
-        router.push(`/scene/${data.scene.id}`);
-      } else {
-        const error = await res.json();
-        alert(error.message || 'Failed to create scene');
-      }
-    } catch (error) {
-      console.error('Failed to create scene:', error);
-      alert('Failed to create scene');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleGenerate = () => {
+    if (!prompt.trim()) return;
+    setIsGenerating(true);
+    // TODO: Connect to AI generation API
+    setTimeout(() => {
+      setIsGenerating(false);
+      alert('Generation would start here! 🎬');
+    }, 2000);
   };
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-2xl mx-auto">
-        <Link href="/explore" className="text-blue-600 hover:underline mb-4 inline-block">
-          ← Back to Explore
-        </Link>
-        
-        <h1 className="text-3xl font-bold mb-2">Create New Scene</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
-          Start a new collaborative story. Others can continue where you leave off!
-        </p>
+    <div className="min-h-screen py-12">
+      <div className="max-w-3xl mx-auto px-4">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            <span className="bg-gradient-to-r from-magenta via-cyan to-gold bg-clip-text text-transparent">
+              Create Your Story
+            </span>
+          </h1>
+          <p className="text-lg text-gray-400">
+            Describe your scene and watch it become art ✨
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Scene Title</label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="The Last Voyage of the Starship Nova"
-              className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-              required
-            />
+        {/* Prompt Input */}
+        <div className="bg-surface rounded-2xl p-6 md:p-8">
+          <label className="block text-sm font-medium text-gray-300 mb-3">
+            What's your story? 📝
+          </label>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="A fierce samurai standing on a cliff, wind blowing through their hair, cherry blossoms falling around them, dramatic shading..."
+            className="w-full h-48 bg-black/30 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan resize-none"
+          />
+          
+          {/* Character count */}
+          <div className="flex justify-between items-center mt-3 text-sm text-gray-500">
+            <span>{prompt.length} characters</span>
+            <span>Be descriptive for better results!</span>
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="A gripping sci-fi adventure about a crew facing the unknown..."
-              className="w-full h-24 p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 resize-none"
-              required
-            />
-          </div>
-
-          {/* Topic */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Topic</label>
-            
-            {/* Toggle between existing and custom topic */}
-            <div className="flex gap-4 mb-3">
-              <button
-                type="button"
-                onClick={() => setUseCustomTopic(false)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  !useCustomTopic 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                Choose Existing
-              </button>
-              <button
-                type="button"
-                onClick={() => setUseCustomTopic(true)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  useCustomTopic 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                Create New Topic
-              </button>
+          {/* Example prompts */}
+          <div className="mt-6">
+            <p className="text-sm text-gray-400 mb-2">Need inspiration? Try these:</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                "Hero powering up with electric aura",
+                "Magical girl transformation sequence",
+                "Epic battle scene with speed lines",
+              ].map((example, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPrompt(example)}
+                  className="px-3 py-1 bg-black/30 border border-gray-700 rounded-full text-sm text-gray-300 hover:border-cyan hover:text-cyan transition-colors"
+                >
+                  {example}
+                </button>
+              ))}
             </div>
-
-            {!useCustomTopic ? (
-              <select
-                value={formData.topicId}
-                onChange={(e) => setFormData({ ...formData, topicId: e.target.value })}
-                className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-                required={!useCustomTopic}
-              >
-                <option value="">Select a topic...</option>
-                {topics.map((topic) => (
-                  <option key={topic.id} value={topic.id}>
-                    {topic.title}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={formData.customTopic}
-                  onChange={(e) => setFormData({ ...formData, customTopic: e.target.value })}
-                  placeholder="Enter your new topic (e.g., Space Exploration, Medieval Fantasy)"
-                  className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-                  required={useCustomTopic}
-                />
-                <input
-                  type="text"
-                  value={formData.customTopicDescription}
-                  onChange={(e) => setFormData({ ...formData, customTopicDescription: e.target.value })}
-                  placeholder="Brief description of this topic (optional)"
-                  className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-                />
-              </div>
-            )}
           </div>
 
-          {/* Initial Prompt */}
-          <div>
-            <label className="block text-sm font-medium mb-2">First Scene Prompt</label>
-            <textarea
-              value={formData.initialPrompt}
-              onChange={(e) => setFormData({ ...formData, initialPrompt: e.target.value })}
-              placeholder="The massive starship emerges from hyperspace, its hull scarred from countless battles. Inside the bridge, Captain Nova stares at the unknown planet ahead..."
-              className="w-full h-40 p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 resize-none"
-              required
-            />
-            <p className="text-sm text-gray-500 mt-2">
-              Describe the opening scene. Be descriptive - this will be expanded by AI and turned into video!
-            </p>
-          </div>
-
-          {/* Submit */}
+          {/* Generate Button */}
           <button
-            type="submit"
-            disabled={submitting || loading}
-            className="w-full btn-primary py-3 text-lg disabled:opacity-50"
+            onClick={handleGenerate}
+            disabled={!prompt.trim() || isGenerating}
+            className={`w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
+              prompt.trim() && !isGenerating
+                ? 'bg-gradient-to-r from-magenta to-cyan text-white hover:scale-[1.02] hover:shadow-lg hover:shadow-cyan/20'
+                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            }`}
           >
-            {submitting ? 'Creating...' : '🎬 Create Scene & Generate Video'}
+            {isGenerating ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Creating your comic...
+              </span>
+            ) : (
+              '🎨 Generate Comic'
+            )}
           </button>
-        </form>
+        </div>
+
+        {/* Tips */}
+        <div className="mt-8 text-center text-sm text-gray-500">
+          <p>💡 Tip: Include details about art style, expressions, and panel composition for best results</p>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
