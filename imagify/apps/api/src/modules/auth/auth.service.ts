@@ -196,9 +196,13 @@ export class AuthService {
     // Store reset token in Redis with 1 hour expiry
     await this.redis.set(`reset:${resetTokenHash}`, user.id, 60 * 60);
 
-    // In production, send email here. For now, log it.
+    // Email delivery is not implemented yet. In development only, log the link and
+    // return it in the response so the reset flow can be tested.
+    const isDevelopment = process.env.NODE_ENV === 'development';
     const resetUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-    this.logger.log(`Password reset link for ${dto.email}: ${resetUrl}`);
+    if (isDevelopment) {
+      this.logger.log(`Password reset link for ${dto.email}: ${resetUrl}`);
+    }
 
     // TODO: Integrate with email service (SendGrid, etc.)
     // await this.emailService.sendPasswordReset(user.email, resetUrl);
@@ -206,8 +210,7 @@ export class AuthService {
     return { 
       success: true, 
       message: 'If an account exists with this email, a reset link has been sent.',
-      // Include token in dev mode for testing
-      ...(process.env.NODE_ENV !== 'production' && { resetToken, resetUrl }),
+      ...(isDevelopment && { resetToken, resetUrl }),
     };
   }
 

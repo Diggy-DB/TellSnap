@@ -9,19 +9,24 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { FirestoreModule } from './firestore/firestore.module';
 import { RedisModule } from './redis/redis.module';
 
+// BullMQ uses the same Redis as RedisService (REDIS_URL)
+const redisUrl = new URL(process.env.REDIS_URL || 'redis://localhost:6379');
+
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: ['.env.local', '.env', '../../.env'],
     }),
 
     // Queue
     BullModule.forRoot({
       connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port || '6379'),
+        username: redisUrl.username || undefined,
+        password: redisUrl.password ? decodeURIComponent(redisUrl.password) : undefined,
       },
     }),
 

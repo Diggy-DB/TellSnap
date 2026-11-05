@@ -8,10 +8,8 @@
     "start": "node dist/apps/api/src/main",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/api/src/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.11.6",
@@ -52,5 +50,21 @@
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.0",
     "typescript": "^5.3.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": ".",
+    "testRegex": "test/.*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@storyforge/shared$": "<rootDir>/../../packages/shared/src"
+    },
+    "testEnvironment": "node"
   }
 }

@@ -131,7 +131,8 @@ export class FirestoreService implements OnModuleInit {
 
   constructor() {
     // Initialize Firestore
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0432066024';
+    // If unset, the project is taken from the credentials
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT || undefined;
     const databaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
     
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {

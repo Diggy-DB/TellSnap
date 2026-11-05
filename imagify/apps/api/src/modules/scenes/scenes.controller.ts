@@ -12,7 +12,6 @@ import { ScenesService } from './scenes.service';
 import { SceneBibleService } from './scene-bible.service';
 import { CreateSceneDto, ContinueSceneDto, ListScenesQueryDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '@storyforge/shared';
 
@@ -67,7 +66,7 @@ export class ScenesController {
   }
 
   @Post(':id/continue')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Continue a scene with a new segment' })
   async continueScene(
@@ -75,8 +74,7 @@ export class ScenesController {
     @Body() dto: ContinueSceneDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    // For demo: use authenticated user or fallback to scene creator
-    const userId = user?.sub || 'anonymous';
-    return this.scenesService.continue(id, dto, userId);
+    // Login required: each continuation queues paid AI generation
+    return this.scenesService.continue(id, dto, user.sub);
   }
 }
