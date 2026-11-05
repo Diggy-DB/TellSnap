@@ -12,8 +12,12 @@ const firebaseConfig = {
     measurementId: "G-9MJVBM2YKK"
 };
 
+// Use your own Firebase project if api-config.js provides FIREBASE_CONFIG
+const customFirebaseConfig = (typeof API_CONFIG !== 'undefined' && API_CONFIG && API_CONFIG.FIREBASE_CONFIG) || null;
+const useCustomFirebase = customFirebaseConfig && customFirebaseConfig.apiKey && !/^your[_-]/i.test(customFirebaseConfig.apiKey);
+
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+firebase.initializeApp(useCustomFirebase ? customFirebaseConfig : firebaseConfig);
 
 // Initialize Firebase Auth
 const auth = firebase.auth();

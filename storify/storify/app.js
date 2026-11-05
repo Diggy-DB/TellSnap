@@ -74,10 +74,13 @@ const saveAsDraft = document.getElementById('saveAsDraft');
 const startNewStory = document.getElementById('startNewStory');
 const draftsList = document.getElementById('draftsList');
 
-// API Configuration - loaded from api-config.js (gitignored)
-const ELEVENLABS_VOICE_ID = API_CONFIG?.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
-const ELEVENLABS_API_KEY = API_CONFIG?.ELEVENLABS_API_KEY || '';
-const OPENAI_API_KEY = API_CONFIG?.OPENAI_API_KEY || '';
+// API Configuration - loaded from api-config.js (gitignored and optional).
+// Without it, narration falls back to local text generation and browser speech.
+const LOADED_API_CONFIG = (typeof API_CONFIG !== 'undefined' && API_CONFIG) ? API_CONFIG : {};
+const isPlaceholderKey = (key) => !key || /^your[_-]/i.test(key);
+const ELEVENLABS_VOICE_ID = LOADED_API_CONFIG.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+const ELEVENLABS_API_KEY = isPlaceholderKey(LOADED_API_CONFIG.ELEVENLABS_API_KEY) ? '' : LOADED_API_CONFIG.ELEVENLABS_API_KEY;
+const OPENAI_API_KEY = isPlaceholderKey(LOADED_API_CONFIG.OPENAI_API_KEY) ? '' : LOADED_API_CONFIG.OPENAI_API_KEY;
 
 // App State
 let currentUser = null;
