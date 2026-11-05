@@ -127,8 +127,8 @@ Select Photo → Add Note → Save → Upload to Storage → Save to Firestore �
 │  5. Send script to ElevenLabs TTS API                           │
 │     ┌────────────────────────────────────────────┐              │
 │     │ Voice: Rachel (21m00Tcm4TlvDq8ikWAM)       │              │
-│     │ Model: eleven_monolingual_v1               │              │
-│     │ Stability: 0.5  |  Similarity: 0.75        │              │
+│     │ Model: eleven_multilingual_v2              │              │
+│     │ Stability: 0.2  |  Similarity: 0.65        │              │
 │     └────────────────────────────────────────────┘              │
 │                              │                                   │
 │                              ▼                                   │
@@ -163,7 +163,7 @@ emotionalPatterns = {
 }
 ```
 
-When OpenAI is unavailable, the app generates contextually appropriate narrations based on detected keywords in user notes.
+When OpenAI is unavailable, the app generates contextually appropriate narrations based on detected keywords in user notes. Without an ElevenLabs key, it reads the narration aloud with the browser's built-in speech.
 
 ### 🚀 Running Storify
 
@@ -180,7 +180,7 @@ open http://localhost:8080
 
 ### ⚙️ Configuration
 
-Create `api-config.js` in the `storify/storify/` folder (this file is gitignored):
+API keys are optional. Without them, Storify runs with local narration and browser speech. To use OpenAI and ElevenLabs, copy `api-config.example.js` to `api-config.js` in `storify/storify/` (this file is gitignored). `FIREBASE_CONFIG` is optional too: leave it out to use the Firebase project in `firebase-config.js`, or fill it in to use your own:
 
 ```javascript
 const API_CONFIG = {
@@ -204,146 +204,60 @@ const API_CONFIG = {
 
 ### What is Imagify?
 
-Imagify (formerly StoryForge) is a **collaborative AI-powered comic/video story platform** where users build narrative scenes together. Browse topics, create scenes, and generate AI-powered comic panels with consistent character continuity.
+Imagify (formerly StoryForge) is a **collaborative AI comic platform**. Someone starts a story from a prompt, other users continue it, and AI draws each new page. Full setup and API details are in [imagify/README.md](imagify/README.md).
 
 ### ✨ Key Features
 
-- **🔐 User Authentication** - JWT-based signup/login with secure sessions
-- **🏠 Explore Stories** - Browse and discover scenes by topic
-- **✏️ Scene Creation** - Start new collaborative stories with custom prompts
-- **🎬 AI Image Generation** - Generate comic panels with Google AI (Imagen 3) or OpenAI
-- **📖 Scene Bible System** - Automatic character/setting continuity tracking
-- **🔄 Continue & Fork** - Add segments or branch existing scenes
-- **🔍 Search** - Find scenes by topic, title, or creator
+- **🔐 User Authentication** - Signup and login with JWT access and refresh tokens
+- **🏠 Explore Stories** - Browse scenes, filter by topic or genre, and sort by recent, popular, or trending
+- **✏️ Scene Creation** - Start a story from a prompt; long prompts are split into several comic pages
+- **➕ Continue Stories** - Logged-in users add the next page to any scene
+- **🎨 AI Comic Pages** - Prompts are expanded into panels, drawn by AI, and composed into one page
+- **📖 Scene Bible** - Each scene has a Scene Bible (characters, locations, rules) that is passed to script expansion; it starts empty, and filling it in automatically is a planned feature
 
 ### 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        IMAGIFY PLATFORM                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────┐       │
-│  │                 FRONTEND (apps/web/)                  │       │
-│  │  Next.js 14 + TypeScript + TailwindCSS               │       │
-│  │                                                       │       │
-│  │  Pages:                                               │       │
-│  │  • / (Home) - Landing with features                  │       │
-│  │  • /explore - Browse all scenes by topic             │       │
-│  │  • /create - Create new scene form                   │       │
-│  │  • /scene/[id] - View & continue a scene            │       │
-│  │  • /login - User authentication                      │       │
-│  │                                                       │       │
-│  │  Components:                                          │       │
-│  │  • Header - Navigation & user menu                   │       │
-│  │  • SceneTimeline - Visual scene segments             │       │
-│  │  • Player - Video segment playback                   │       │
-│  │  • ContinueModal - Add new segments                  │       │
-│  │  • GenreCards - Topic browsing                       │       │
-│  └──────────────────────────────────────────────────────┘       │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌──────────────────────────────────────────────────────┐       │
-│  │                  BACKEND (apps/api/)                  │       │
-│  │  NestJS + TypeScript                                  │       │
-│  │                                                       │       │
-│  │  Modules:                                             │       │
-│  │  • auth/ - JWT authentication & user management     │       │
-│  │  • scenes/ - Scene CRUD operations                   │       │
-│  │  • segments/ - Video segment management              │       │
-│  │  • topics/ - Story topic/category taxonomy          │       │
-│  │  • jobs/ - Async generation job queue               │       │
-│  │                                                       │       │
-│  │  Infrastructure:                                      │       │
-│  │  • Google Cloud Firestore - Primary database        │       │
-│  │  • Redis (ioredis) - Caching & sessions             │       │
-│  │  • BullMQ - Background job processing               │       │
-│  │  • Socket.io - Real-time updates                    │       │
-│  └──────────────────────────────────────────────────────┘       │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌──────────────────────────────────────────────────────┐       │
-│  │              GENERATOR SERVICE (services/generator/)  │       │
-│  │  Python 3.11 + FastAPI + BullMQ                      │       │
-│  │                                                       │       │
-│  │  Services:                                            │       │
-│  │  • comic_generator.py - Image generation             │       │
-│  │  • script_expander.py - AI script expansion         │       │
-│  │  • script_segmenter.py - Panel segmentation         │       │
-│  │  • continuity.py - Scene Bible validation           │       │
-│  │  • gcs_storage.py - Google Cloud Storage            │       │
-│  └──────────────────────────────────────────────────────┘       │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+Next.js web app (apps/web, :3000)
+        │  REST /api/v1
+        ▼
+NestJS API (apps/api, :4000) ── Firestore (scenes, pages, users, jobs)
+        │  BullMQ "generation" queue on Redis
+        ▼
+Python worker (services/generator)
+   1. Expand the prompt into panels (OpenAI, or a fallback without a key)
+   2. Draw panels: Nano Banana Pro → DALL-E 3 → Imagen 3
+   3. Compose the page (Pillow) → Cloud Storage → Firestore
 ```
 
-### 🔄 How It Works
-
-#### 1. User Flow
-```
-Browse /explore → Select Topic → View Scenes → Create or Continue → AI Generation
-```
-
-#### 2. AI Generation Pipeline
-```
-User Prompt → Script Expander (GPT-4) → Script Segmenter → 
-Comic Generator (Imagen 3/OpenAI) → Google Cloud Storage → Firestore
-```
+The web app polls the API for job progress. A separate FastAPI endpoint in the generator (`:8080`) splits long prompts into pages when a scene is created.
 
 ### 🚀 Running Imagify
 
 ```bash
-# Navigate to the Imagify folder
 cd imagify
-
-# Install all dependencies (monorepo)
 pnpm install
+cp .env.example .env        # JWT secrets, Google Cloud, at least one image provider key
+docker compose up -d redis
 
-# Start all services in development mode
-pnpm run dev
+pnpm run dev                # web on :3000, API on :4000 (docs at /api/docs)
 
-# Or run individually:
-
-# Frontend (Next.js) - http://localhost:3000
-cd apps/web && pnpm run dev
-
-# Backend API (NestJS) - http://localhost:3001
-cd apps/api && pnpm run dev
-
-# Generator Worker (Python/FastAPI) - http://localhost:8080
+# Generator, in separate terminals
 cd services/generator
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-uvicorn src.api:app --reload --port 8080
+python -m src.bullmq_worker                    # draws the comic pages
+uvicorn src.api:app --reload --port 8080       # script analysis
 ```
 
 ### ⚙️ Configuration
 
-Create `.env` files in the respective directories:
+One `imagify/.env` file configures both the API and the generator. See [imagify/.env.example](imagify/.env.example) for every variable. You need:
 
-**Root .env (or apps/api/.env):**
-```bash
-# Google Cloud
-GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_APPLICATION_CREDENTIALS=./credentials.json
-GCS_BUCKET=your-bucket-name
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Auth
-JWT_ACCESS_SECRET=your-jwt-secret
-JWT_REFRESH_SECRET=your-refresh-secret
-
-# AI Providers
-OPENAI_API_KEY=sk-...
-GOOGLE_AI_API_KEY=your-google-ai-key
-```
-
-**apps/web/.env.local:**
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
-```
+- `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (the API won't start without them)
+- `GOOGLE_CLOUD_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS`, and `GCS_BUCKET`
+- `REDIS_URL` (defaults to `redis://localhost:6379`)
+- At least one image provider: `APIFREE_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_AI_API_KEY`
 
 ---
 
@@ -368,28 +282,28 @@ TellSnap/
 └── imagify/                # Imagify collaborative platform
     ├── apps/
     │   ├── web/            # Next.js frontend
+    │   │   ├── app/               # Pages (App Router)
     │   │   └── src/
-    │   │       ├── app/           # Next.js App Router pages
     │   │       ├── components/    # React components
-    │   │       └── lib/           # Utilities & auth context
+    │   │       └── lib/           # API client & auth context
     │   │
     │   └── api/            # NestJS backend
-    │       └── src/
-    │           ├── modules/       # Feature modules
-    │           ├── firestore/     # Firestore integration
-    │           └── redis/         # Redis caching
+    │       ├── src/
+    │       │   ├── modules/       # auth, topics, scenes, segments, jobs
+    │       │   ├── firestore/     # Firestore integration
+    │       │   └── redis/         # Redis caching
+    │       └── test/              # End-to-end tests
     │
     ├── services/
-    │   └── generator/      # Python AI generation worker
-    │       └── src/
-    │           └── services/      # Generation services
+    │   └── generator/      # Python AI generation worker and API
+    │       ├── src/
+    │       └── tests/
     │
     ├── packages/
     │   └── shared/         # Shared TypeScript types
     │
-    ├── docs/               # Documentation
-    ├── infra/              # Infrastructure config
-    ├── docker-compose.yml  # Container orchestration
+    ├── docs/               # Original design documents
+    ├── docker-compose.yml  # Redis for local development
     └── turbo.json          # Turborepo config
 ```
 
@@ -418,10 +332,9 @@ TellSnap/
 | **Google Cloud Firestore** | NoSQL database |
 | **Google Cloud Storage** | Media/image storage |
 | **Redis + BullMQ** | Caching & job queue |
-| **Socket.io** | Real-time WebSocket updates |
-| **Python 3.11 + FastAPI** | AI generation worker |
-| **Google AI (Imagen 3)** | Comic panel generation |
-| **OpenAI GPT-4** | Script expansion |
+| **Python 3.11 + BullMQ + FastAPI** | AI generation worker and script analysis |
+| **Nano Banana Pro, DALL-E 3, Imagen 3** | Comic panel generation (tried in that order) |
+| **OpenAI chat model** | Script expansion (optional) |
 | **JWT + Passport** | Authentication |
 | **TailwindCSS** | Styling |
 | **pnpm + Turborepo** | Monorepo management |
@@ -430,10 +343,11 @@ TellSnap/
 
 ## 🔐 Security Notes
 
-- API keys are stored in `api-config.js` which is **gitignored**
+- Storify's API keys are stored in `api-config.js`, which is **gitignored**
+- Storify calls OpenAI and ElevenLabs from the browser, so anyone who opens a deployed copy can read those keys. Use them only for local testing, or move those calls to a server before deploying
 - Firebase Security Rules should be configured for production
+- Imagify's API refuses to start without JWT secrets; `.env` files and Google Cloud service account keys are gitignored
 - Never commit sensitive credentials to version control
-- Use environment variables in production deployments
 
 ---
 

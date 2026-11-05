@@ -4,8 +4,6 @@
 
 ![Storify](https://img.shields.io/badge/Version-1.0.0-green)
 
-🌐 **Live Demo:** [https://storify-memories.surge.sh](https://storify-memories.surge.sh)
-
 ---
 
 ## ✨ Features
@@ -51,18 +49,21 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/storify.git
-   cd storify
+   git clone https://github.com/Diggy-DB/TellSnap.git
+   cd TellSnap/storify/storify
    ```
 
-2. **Open the app**
-   - Simply open `index.html` in your browser
-   - Or use a local server:
-     ```bash
-     npx serve .
-     ```
+2. **Start a local server** (Firebase sign-in doesn't work from a `file://` page)
+   ```bash
+   python3 -m http.server 8080
+   ```
+   Then open http://localhost:8080.
 
-3. **Create an account**
+3. **Add API keys (optional)**
+   - Copy `api-config.example.js` to `api-config.js` and add your OpenAI and ElevenLabs keys
+   - Without keys, Storify writes narrations locally and reads them with the browser's built-in speech
+
+4. **Create an account**
    - Click "Sign up" on the login page
    - Enter your name, email, and password
    - Start creating your story!
@@ -97,9 +98,9 @@ storify/
 - **Frontend:** Vanilla HTML, CSS, JavaScript (no frameworks)
 - **Fonts:** Google Fonts (Playfair Display, Quicksand)
 - **Icons:** Font Awesome
-- **Voice AI:** ElevenLabs Text-to-Speech API
-- **Storage:** Browser localStorage
-- **Hosting:** Surge.sh
+- **Narration AI:** OpenAI GPT-4o (with vision)
+- **Voice AI:** ElevenLabs Text-to-Speech API (browser speech as a fallback)
+- **Backend:** Firebase Authentication, Cloud Firestore, and Firebase Storage (browser localStorage as a fallback)
 
 ---
 
@@ -164,8 +165,5 @@ Created with ❤️ for preserving and sharing precious memories.
 - [ElevenLabs](https://elevenlabs.io/) for the amazing voice AI
 - [Font Awesome](https://fontawesome.com/) for icons
 - [Google Fonts](https://fonts.google.com/) for typography
-- [Surge.sh](https://surge.sh/) for hosting
-
----
-
-**Start your journey today at [storify-memories.surge.sh](https://storify-memories.surge.sh)** 🌟
+- [OpenAI](https://openai.com/) for GPT-4o narration
+- [Firebase](https://firebase.google.com/) for authentication and storage
