@@ -164,6 +164,11 @@ describe('Imagify API (e2e)', () => {
       expect(queue.add).toHaveBeenCalledTimes(1);
     });
 
+    it('requires login to retry or cancel a job', async () => {
+      expect((await call('POST', '/jobs/some-job/retry')).status).toBe(401);
+      expect((await call('POST', '/jobs/some-job/cancel')).status).toBe(401);
+    });
+
     it('returns 404 for an unknown scene', async () => {
       expect((await call('GET', '/scenes/does-not-exist')).status).toBe(404);
     });
