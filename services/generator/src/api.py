@@ -86,7 +86,7 @@ async def analyze_script(request: AnalyzeScriptRequest):
         
         return AnalyzeScriptResponse(
             needs_segmentation=result.needs_segmentation,
-            total_duration_estimate=result.total_panels_estimate * 2.0,
+            total_duration_estimate=result.total_duration_estimate,
             num_segments=len(segments),
             segments=segments,
         )

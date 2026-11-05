@@ -65,6 +65,11 @@ export class ListScenesQueryDto {
   @IsOptional()
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by genre (action, romance, fantasy, horror, comedy, drama, sci-fi, slice-of-life)' })
+  @IsString()
+  @IsOptional()
+  genre?: string;
+
   @ApiPropertyOptional({ enum: ['recent', 'popular', 'trending'] })
   @IsIn(['recent', 'popular', 'trending'])
   @IsOptional()

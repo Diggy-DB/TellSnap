@@ -177,6 +177,25 @@ class FirestoreService:
         """Update job progress."""
         self.update_job(job_id, {"progress": progress, "stage": stage})
 
+    def update_scene(self, scene_id: str, updates: dict) -> None:
+        """Update scene data in Firestore."""
+        try:
+            # Add updated_at timestamp
+            updates["updated_at"] = datetime.utcnow()
+            
+            self.scenes.document(scene_id).update(updates)
+
+            # Publish update via Redis for real-time notifications
+            self.redis.publish("scene:update", json.dumps({
+                "scene_id": scene_id,
+                "updates": {k: str(v) if isinstance(v, datetime) else v for k, v in updates.items()},
+                "timestamp": datetime.utcnow().isoformat(),
+            }))
+            logger.info("Updated scene", scene_id=scene_id)
+        except Exception as e:
+            logger.error("Failed to update scene", scene_id=scene_id, error=str(e))
+            raise
+
     def complete_job(self, job_id: str, result: dict) -> None:
         """Mark job as completed."""
         self.update_job(job_id, {

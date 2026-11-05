@@ -1,4 +1,5 @@
 import SceneTimeline from '../src/components/SceneTimeline';
+import RecentComics from '../src/components/RecentComics';
 
 export default function Page() {
   return (
@@ -27,6 +28,10 @@ export default function Page() {
 
       <section className="max-w-7xl mx-auto px-4">
         <SceneTimeline />
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4">
+        <RecentComics />
       </section>
     </div>
   );

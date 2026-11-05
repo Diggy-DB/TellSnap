@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from '../lib/auth-context';
 
 export default function Header(){
-  // Mock user state - replace with real auth later
-  const isLoggedIn = true;
-  const username = "Creator123";
+  const { user, isAuthenticated, logout, isLoading } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
+
+  const username = user?.username || 'User';
 
   return (
     <header className="site-header py-4">
@@ -48,7 +49,9 @@ export default function Header(){
           </div>
 
           {/* User Section */}
-          {isLoggedIn ? (
+          {isLoading ? (
+            <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse" />
+          ) : isAuthenticated ? (
             <div className="relative">
               <button 
                 onClick={() => setShowDropdown(!showDropdown)}
@@ -88,7 +91,13 @@ export default function Header(){
                     </a>
                   </div>
                   <div className="border-t border-gray-700 py-2">
-                    <button className="flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-white/5 transition-colors w-full">
+                    <button 
+                      onClick={() => {
+                        logout();
+                        setShowDropdown(false);
+                      }}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-white/5 transition-colors w-full"
+                    >
                       <span>🚪</span> Logout
                     </button>
                   </div>

@@ -2,7 +2,7 @@
 Comic Generator - Generates manga/manhwa style comic pages using AI image generation.
 
 This service takes expanded scripts and generates comic panels
-using Google's Imagen 3 model via the Vertex AI SDK.
+using Google's Imagen 3 model via the Vertex AI SDK, with DALL-E 3 as fallback.
 """
 
 from dataclasses import dataclass
@@ -15,9 +15,11 @@ import base64
 import io
 import structlog
 from PIL import Image
+import httpx
 
 from google import genai
 from google.genai import types
+from openai import OpenAI
 
 from src.config import get_settings
 
@@ -56,13 +58,37 @@ class ComicGenerationError(Exception):
 
 class ComicGenerator:
     """
-    Generates comic/manga style pages using Google Imagen 3.
+    Generates comic/manga style pages using Nano Banana Pro (primary), DALL-E 3, or Imagen 3 (fallback).
     
-    Creates multi-panel comic pages with consistent art style.
+    Nano Banana Pro from apifree.ai is preferred for high-quality 4K manga/stylized art.
     """
 
     def __init__(self):
-        # Use service account if credentials file is set
+        # Initialize Apifree client for Nano Banana Pro (primary - best quality)
+        self.apifree_client = None
+        self.use_apifree_primary = False
+        
+        if settings.apifree_api_key:
+            self.apifree_client = OpenAI(
+                base_url=settings.apifree_base_url,
+                api_key=settings.apifree_api_key
+            )
+            self.use_apifree_primary = True
+            logger.info("Nano Banana Pro enabled as primary generator", base_url=settings.apifree_base_url)
+        
+        # Initialize OpenAI client for DALL-E 3 (secondary)
+        self.openai_client = None
+        self.use_dalle_primary = False  # Only use if apifree not available
+        
+        if settings.openai_api_key:
+            self.openai_client = OpenAI(api_key=settings.openai_api_key)
+            if not self.use_apifree_primary:
+                self.use_dalle_primary = True
+                logger.info("DALL-E 3 enabled as primary generator")
+            else:
+                logger.info("DALL-E 3 available as fallback")
+        
+        # Use service account for Imagen 3 as fallback
         if settings.google_application_credentials:
             import os
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
@@ -71,10 +97,9 @@ class ComicGenerator:
                 project=settings.google_cloud_project,
                 location="us-central1"
             )
-            logger.info("Using Vertex AI with service account", project=settings.google_cloud_project)
+            logger.info("Imagen 3 available as fallback", project=settings.google_cloud_project)
         else:
-            self.client = genai.Client(api_key=settings.google_ai_api_key)
-            logger.info("Using Google AI Studio with API key")
+            self.client = genai.Client(api_key=settings.google_ai_api_key) if settings.google_ai_api_key else None
         
         self.image_model = "imagen-3.0-generate-002"  # Imagen 3 model
 
@@ -85,6 +110,7 @@ class ComicGenerator:
         style: str = "manga",  # manga, manhwa, western_comic
         page_layout: str = "auto",  # auto, grid_2x2, vertical_3, horizontal_2
         aspect_ratio: str = "9:16",  # Portrait for manga
+        user_prompt: str = "",  # Original user story prompt for context
     ) -> ComicPageResult:
         """
         Generate a comic page from panel prompts.
@@ -126,6 +152,7 @@ class ComicGenerator:
                 scene_bible=scene_bible,
                 style=style,
                 output_dir=temp_dir,
+                user_prompt=user_prompt,
             )
             panels.append(panel_result)
             logger.info(f"Generated panel {idx + 1}/{num_panels}")
@@ -149,6 +176,7 @@ class ComicGenerator:
         scene_bible: dict[str, Any] | None,
         style: str,
         output_dir: Path,
+        user_prompt: str = "",
     ) -> PanelResult:
         """Generate a single comic panel."""
         
@@ -163,17 +191,63 @@ class ComicGenerator:
                 [f"{d.get('character', 'Character')}" for d in dialogue]
             )
         
+        # Include original user prompt for context (important for specific character details)
+        story_context = ""
+        if user_prompt:
+            story_context = f"\n\nStory context (include all specific details mentioned): {user_prompt}"
+        
         full_prompt = f"""{style_instructions}
 
-Scene: {description}{dialogue_context}
+Scene: {description}{dialogue_context}{story_context}
 
 {character_context}
 
-Important: Generate a single comic panel. No speech bubbles or text - those will be added later. 
-Focus on dynamic poses, expressive characters, and dramatic composition."""
+CRITICAL: Do NOT include any text, speech bubbles, captions, or written words in the image.
+Focus on dynamic poses, expressive characters, and dramatic composition.
+Include all specific character transformations, forms, and details mentioned in the story context."""
 
         try:
-            # Generate image using Imagen 3
+            # Use Nano Banana Pro as primary (best quality)
+            if self.use_apifree_primary and self.apifree_client:
+                try:
+                    return self._generate_panel_apifree(
+                        panel_index=panel_index,
+                        description=description,
+                        dialogue=dialogue,
+                        scene_bible=scene_bible,
+                        style=style,
+                        output_dir=output_dir,
+                        full_prompt=full_prompt,
+                    )
+                except ComicGenerationError as apifree_error:
+                    error_str = str(apifree_error)
+                    logger.warning("Nano Banana Pro failed, trying DALL-E 3", 
+                                 panel_index=panel_index, error=error_str[:100])
+                    # Fall through to DALL-E 3
+            
+            # Use DALL-E 3 as secondary
+            if self.openai_client:
+                try:
+                    return self._generate_panel_dalle(
+                        panel_index=panel_index,
+                        description=description,
+                        dialogue=dialogue,
+                        scene_bible=scene_bible,
+                        style=style,
+                        output_dir=output_dir,
+                        full_prompt=full_prompt,
+                    )
+                except ComicGenerationError as dalle_error:
+                    # If DALL-E fails (content policy, etc.), fall back to Imagen 3
+                    error_str = str(dalle_error)
+                    if "content_policy" in error_str or "safety" in error_str.lower():
+                        logger.warning("DALL-E content policy error, falling back to Imagen 3", 
+                                     panel_index=panel_index, error=error_str[:100])
+                        # Continue to Imagen 3 below
+                    else:
+                        raise  # Re-raise if it's a different error
+            
+            # Use Imagen 3 (primary if DALL-E not enabled, or fallback)
             logger.info("Calling Imagen 3 API", panel_index=panel_index)
             
             response = self.client.models.generate_images(
@@ -223,8 +297,212 @@ Focus on dynamic poses, expressive characters, and dramatic composition."""
                 raise ComicGenerationError("No images generated")
 
         except Exception as e:
+            error_str = str(e)
+            # Check if it's a quota error or other error - try alternative
+            if self.openai_client and not self.use_dalle_primary:
+                logger.warning("Imagen 3 failed, trying DALL-E 3", panel_index=panel_index, error=error_str[:100])
+                return self._generate_panel_dalle(
+                    panel_index=panel_index,
+                    description=description,
+                    dialogue=dialogue,
+                    scene_bible=scene_bible,
+                    style=style,
+                    output_dir=output_dir,
+                    full_prompt=full_prompt,
+                )
             logger.error("Panel generation failed", panel_index=panel_index, error=str(e))
             raise ComicGenerationError(f"Failed to generate panel {panel_index}: {e}")
+
+    def _generate_panel_apifree(
+        self,
+        panel_index: int,
+        description: str,
+        dialogue: list[dict[str, str]],
+        scene_bible: dict[str, Any] | None,
+        style: str,
+        output_dir: Path,
+        full_prompt: str,
+    ) -> PanelResult:
+        """Generate a single comic panel using Nano Banana Pro via apifree.ai."""
+        
+        if not self.apifree_client:
+            raise ComicGenerationError("Apifree not available - no API key configured")
+        
+        try:
+            logger.info("Calling Nano Banana Pro API", panel_index=panel_index)
+            
+            # Build manga-optimized prompt for Nano Banana Pro
+            manga_prompt = f"""Professional Japanese manga illustration, black and white with screentone shading.
+
+{full_prompt}
+
+Art style requirements:
+- Clean professional manga linework with precise ink strokes
+- High contrast black and white with detailed screentone/halftone shading
+- Expressive anime-style character faces with large detailed eyes
+- Dynamic action poses with motion lines and speed effects
+- Dramatic camera angles and cinematic composition
+- NO TEXT, NO SPEECH BUBBLES, NO WRITTEN WORDS, NO LETTERS, NO CAPTIONS
+- Leave space for dialogue bubbles to be added later
+- Professional manga panel composition"""
+            
+            # Use OpenAI-compatible images.generate endpoint
+            response = self.apifree_client.images.generate(
+                model=settings.apifree_image_model,  # google/nano-banana-pro
+                prompt=manga_prompt[:4000],
+                size="1024x1792",  # Portrait for manga
+                n=1,
+            )
+            
+            # Download the image
+            image_url = response.data[0].url
+            logger.info("Nano Banana Pro image generated, downloading", panel_index=panel_index)
+            
+            # Download image bytes
+            with httpx.Client(timeout=60.0) as client:
+                img_response = client.get(image_url)
+                img_response.raise_for_status()
+                image_bytes = img_response.content
+            
+            # Save panel image
+            panel_path = output_dir / f"panel_{panel_index}.png"
+            with open(panel_path, 'wb') as f:
+                f.write(image_bytes)
+            
+            # Get dimensions
+            img = Image.open(panel_path)
+            width, height = img.size
+            img.close()
+            
+            logger.info("Nano Banana Pro panel generated successfully", panel_index=panel_index)
+            
+            return PanelResult(
+                panel_index=panel_index,
+                image_path=panel_path,
+                description=description,
+                dialogue=dialogue,
+                width=width,
+                height=height,
+            )
+            
+        except Exception as e:
+            logger.error("Nano Banana Pro panel generation failed", panel_index=panel_index, error=str(e))
+            raise ComicGenerationError(f"Failed to generate panel {panel_index} with Nano Banana Pro: {e}")
+
+    def _rewrite_prompt_for_dalle(self, prompt: str) -> str:
+        """Use GPT-4 to rewrite the prompt to be DALL-E safe (like ChatGPT does internally)."""
+        if not self.openai_client:
+            return prompt
+        
+        try:
+            logger.info("Rewriting prompt for DALL-E safety")
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a prompt rewriter for DALL-E 3 manga image generation.
+Your job is to create a clean, safe image prompt that will generate high-quality manga art.
+
+CRITICAL RULES:
+1. REMOVE all references to text, speech, dialogue, captions, words, letters, or writing
+2. REMOVE all character names - describe them visually instead (e.g., "spiky-haired martial artist" not "Goku")
+3. Replace action words: attack→dynamic pose, fight→confrontation, battle→showdown, punch→striking motion
+4. Focus ONLY on visual composition: poses, expressions, camera angles, lighting
+5. Describe the ART, not the story
+6. Keep under 500 words
+7. End with: "Clean manga illustration with no text or speech bubbles."
+
+Output ONLY the rewritten prompt."""
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Rewrite for DALL-E 3 manga generation:\n\n{prompt}"
+                    }
+                ],
+                max_tokens=800,
+                temperature=0.3,
+            )
+            rewritten = response.choices[0].message.content.strip()
+            logger.info("Prompt rewritten successfully", original_len=len(prompt), rewritten_len=len(rewritten))
+            return rewritten
+        except Exception as e:
+            logger.warning("Failed to rewrite prompt, using original", error=str(e))
+            return prompt
+
+    def _generate_panel_dalle(
+        self,
+        panel_index: int,
+        description: str,
+        dialogue: list[dict[str, str]],
+        scene_bible: dict[str, Any] | None,
+        style: str,
+        output_dir: Path,
+        full_prompt: str,
+    ) -> PanelResult:
+        """Generate a single comic panel using DALL-E 3."""
+        
+        if not self.openai_client:
+            raise ComicGenerationError("DALL-E not available - no OpenAI API key configured")
+        
+        try:
+            logger.info("Calling DALL-E 3 API", panel_index=panel_index)
+            
+            # Rewrite prompt using GPT-4 (like ChatGPT does internally)
+            safe_prompt = self._rewrite_prompt_for_dalle(full_prompt)
+            
+            # Enhanced DALL-E 3 prompt - VERY explicit about no text
+            dalle_prompt = f"""Create a single manga panel illustration:
+
+{safe_prompt}
+
+STYLE: Professional Japanese manga art. Black and white with screentone shading. Dynamic composition with dramatic angles. Expressive anime-style faces. Clean bold linework.
+
+ABSOLUTELY NO TEXT OF ANY KIND. No speech bubbles. No sound effects. No captions. No letters. No words. No writing. The image must be completely text-free. Leave empty space where speech bubbles would normally go."""
+            
+            response = self.openai_client.images.generate(
+                model="dall-e-3",
+                prompt=dalle_prompt[:4000],  # DALL-E has 4000 char limit
+                size="1024x1792",  # Portrait orientation for manga
+                quality="hd",  # Use HD quality for better results
+                style="vivid",  # More dramatic/stylized
+                n=1,
+            )
+            
+            # Download the image
+            image_url = response.data[0].url
+            logger.info("DALL-E image generated, downloading", panel_index=panel_index)
+            
+            # Download image bytes
+            with httpx.Client() as client:
+                img_response = client.get(image_url)
+                img_response.raise_for_status()
+                image_bytes = img_response.content
+            
+            # Save panel image
+            panel_path = output_dir / f"panel_{panel_index}.png"
+            with open(panel_path, 'wb') as f:
+                f.write(image_bytes)
+            
+            # Get dimensions
+            img = Image.open(panel_path)
+            width, height = img.size
+            img.close()
+            
+            logger.info("DALL-E panel generated successfully", panel_index=panel_index)
+            
+            return PanelResult(
+                panel_index=panel_index,
+                image_path=panel_path,
+                description=description,
+                dialogue=dialogue,
+                width=width,
+                height=height,
+            )
+            
+        except Exception as e:
+            logger.error("DALL-E panel generation failed", panel_index=panel_index, error=str(e))
+            raise ComicGenerationError(f"Failed to generate panel {panel_index} with DALL-E: {e}")
 
     def _compose_page(
         self,
@@ -271,8 +549,8 @@ Focus on dynamic poses, expressive characters, and dramatic composition."""
         panel_paths = []
         for panel, (x, y, w, h) in zip(panels, positions):
             img = Image.open(panel.image_path)
-            # Resize to fit the allocated space
-            img = img.resize((w, h), Image.Resampling.LANCZOS)
+            # Resize to fit with aspect ratio preservation (cover mode with center crop)
+            img = self._resize_cover(img, w, h)
             page.paste(img, (x, y))
             panel_paths.append(panel.image_path)
             img.close()
@@ -306,6 +584,31 @@ Focus on dynamic poses, expressive characters, and dramatic composition."""
             generation_id=f"comic_{int(time.time() * 1000)}",
             style=style,
         )
+
+    def _resize_cover(self, img: Image.Image, target_w: int, target_h: int) -> Image.Image:
+        """
+        Resize image to cover target dimensions while preserving aspect ratio.
+        Centers and crops to fit exactly.
+        """
+        orig_w, orig_h = img.size
+        
+        # Calculate scale to cover the target area
+        scale_w = target_w / orig_w
+        scale_h = target_h / orig_h
+        scale = max(scale_w, scale_h)  # Use larger scale to cover
+        
+        # Resize to cover
+        new_w = int(orig_w * scale)
+        new_h = int(orig_h * scale)
+        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        
+        # Center crop to target size
+        left = (new_w - target_w) // 2
+        top = (new_h - target_h) // 2
+        right = left + target_w
+        bottom = top + target_h
+        
+        return img.crop((left, top, right, bottom))
 
     def _calculate_layout(
         self, 

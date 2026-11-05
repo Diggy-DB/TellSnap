@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { useAuth } from '../../src/lib/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, signup, isLoading, error: authError } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
   const [formData, setFormData] = useState({
@@ -20,38 +19,17 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
     try {
-      const endpoint = isLogin ? '/auth/login' : '/auth/signup';
-      const body = isLogin 
-        ? { email: formData.email, password: formData.password }
-        : formData;
-
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        // Store token - API returns accessToken directly (not nested in data)
-        const token = data.data?.accessToken || data.accessToken;
-        const user = data.data?.user || data.user;
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        router.push('/explore');
+      if (isLogin) {
+        await login(formData.email, formData.password);
       } else {
-        setError(data.message || 'Authentication failed');
+        await signup(formData.email, formData.password, formData.username);
       }
-    } catch (err) {
-      console.error('Auth error:', err);
-      setError('Failed to connect to server');
-    } finally {
-      setLoading(false);
+      router.push('/');
+    } catch {
+      // Error is handled by auth context
     }
   };
 
@@ -92,9 +70,9 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {error && (
+          {(error || authError) && (
             <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-              {error}
+              {error || authError}
             </div>
           )}
 
@@ -135,14 +113,21 @@ export default function LoginPage() {
                 className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
                 required
               />
+              {isLogin && (
+                <div className="mt-1 text-right">
+                  <Link href="/forgot-password" className="text-sm text-cyan hover:underline">
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isLoading}
               className="w-full btn-primary py-3 disabled:opacity-50"
             >
-              {loading ? 'Please wait...' : isLogin ? 'Login' : 'Create Account'}
+              {isLoading ? 'Please wait...' : isLogin ? 'Login' : 'Create Account'}
             </button>
           </form>
 

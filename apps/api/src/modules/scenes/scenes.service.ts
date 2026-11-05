@@ -33,15 +33,16 @@ export class ScenesService {
   ) {}
 
   async list(query: ListScenesQueryDto) {
-    const { page = 1, limit = 20, topicId, sort = 'recent' } = query;
+    const { page = 1, limit = 20, topicId, genre, sort = 'recent' } = query;
     const skip = (page - 1) * limit;
 
-    // Build query conditions
-    const whereConditions: Array<{ field: string; op: '=='; value: unknown }> = [
-      { field: 'status', op: '==', value: SceneStatus.PUBLISHED },
-    ];
+    // Build query conditions - show all scenes, not just published
+    const whereConditions: Array<{ field: string; op: '=='; value: unknown }> = [];
     if (topicId) {
       whereConditions.push({ field: 'topicId', op: '==', value: topicId });
+    }
+    if (genre) {
+      whereConditions.push({ field: 'genre', op: '==', value: genre });
     }
 
     // Determine sort field
@@ -49,20 +50,33 @@ export class ScenesService {
     if (sort === 'popular') orderField = 'upvotes';
     else if (sort === 'trending') orderField = 'viewCount';
 
-    // Query Firestore
+    // Query Firestore - skip orderBy when filtering by genre to avoid needing composite index
     let scenes = await this.firestore.findMany<Scene>('scenes', {
-      where: whereConditions,
-      orderBy: [{ field: orderField, direction: 'desc' }],
+      where: whereConditions.length > 0 ? whereConditions : undefined,
+      orderBy: genre ? undefined : [{ field: orderField, direction: 'desc' }],
     });
+
+    // Sort in-memory when filtering by genre
+    if (genre) {
+      scenes.sort((a, b) => {
+        const aVal = (a as unknown as Record<string, unknown>)[orderField];
+        const bVal = (b as unknown as Record<string, unknown>)[orderField];
+        if (aVal instanceof Date && bVal instanceof Date) {
+          return bVal.getTime() - aVal.getTime();
+        }
+        return String(bVal).localeCompare(String(aVal));
+      });
+    }
 
     const total = scenes.length;
     scenes = scenes.slice(skip, skip + limit);
 
-    // Enrich with topic and creator info
+    // Enrich with topic and creator info, plus get thumbnail from first segment
     const items = await Promise.all(
       scenes.map(async (scene) => {
         let topic: Partial<Topic> | null = null;
         let createdBy: Partial<User> | null = null;
+        let thumbnailUrl = scene.thumbnailUrl;
 
         if (scene.topicId) {
           topic = await this.firestore.findById<Topic>('topics', scene.topicId);
@@ -70,9 +84,28 @@ export class ScenesService {
         if (scene.createdById) {
           createdBy = await this.firestore.findById<User>('users', scene.createdById);
         }
+        
+        // If scene doesn't have thumbnail, get it from the first segment
+        if (!thumbnailUrl) {
+          try {
+            // Query without orderBy to avoid composite index, then sort in-memory
+            const segments = await this.firestore.findMany<Segment>('segments', {
+              where: [{ field: 'sceneId', op: '==', value: scene.id }],
+            });
+            segments.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+            if (segments.length > 0 && segments[0].imageUrl) {
+              thumbnailUrl = segments[0].imageUrl;
+            } else if (segments.length > 0 && segments[0].thumbnailUrl) {
+              thumbnailUrl = segments[0].thumbnailUrl;
+            }
+          } catch (e) {
+            // Ignore errors fetching segments
+          }
+        }
 
         return {
           ...scene,
+          thumbnailUrl,
           topic: topic ? { id: topic.id, title: topic.title } : null,
           createdBy: createdBy
             ? { id: createdBy.id, username: createdBy.username, avatarUrl: createdBy.avatarUrl }
@@ -114,11 +147,11 @@ export class ScenesService {
       createdBy = await this.firestore.findById<User>('users', scene.createdById);
     }
 
-    // Fetch segments
+    // Fetch segments - query without orderBy to avoid composite index, sort in-memory
     const segments = await this.firestore.findMany<Segment>('segments', {
       where: [{ field: 'sceneId', op: '==', value: id }],
-      orderBy: [{ field: 'orderIndex', direction: 'asc' }],
     });
+    segments.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
     const result = {
       ...scene,
@@ -152,14 +185,13 @@ export class ScenesService {
       throw new NotFoundException('Scene not found');
     }
 
-    // Fetch completed segments
-    const segments = await this.firestore.findMany<Segment>('segments', {
-      where: [
-        { field: 'sceneId', op: '==', value: id },
-        { field: 'status', op: '==', value: SegmentStatus.COMPLETED },
-      ],
-      orderBy: [{ field: 'orderIndex', direction: 'asc' }],
+    // Fetch completed segments - query without orderBy to avoid composite index, sort in-memory
+    let segments = await this.firestore.findMany<Segment>('segments', {
+      where: [{ field: 'sceneId', op: '==', value: id }],
     });
+    // Filter completed and sort in-memory
+    segments = segments.filter(s => s.status === SegmentStatus.COMPLETED);
+    segments.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
     return {
       sceneId: scene.id,
@@ -314,12 +346,12 @@ export class ScenesService {
       throw new NotFoundException('Scene not found');
     }
 
-    // Get last segment order index
+    // Get last segment order index - query without orderBy to avoid composite index requirement
     const segments = await this.firestore.findMany<Segment>('segments', {
       where: [{ field: 'sceneId', op: '==', value: sceneId }],
-      orderBy: [{ field: 'orderIndex', direction: 'desc' }],
-      limit: 1,
     });
+    // Sort in-memory and get the last segment
+    segments.sort((a, b) => (b.orderIndex || 0) - (a.orderIndex || 0));
     const lastOrderIndex = segments[0]?.orderIndex || 0;
 
     // Create new segment

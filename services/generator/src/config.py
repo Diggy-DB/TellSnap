@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4-turbo-preview"
     
+    # Apifree.ai (nano-banana-pro - high quality image gen)
+    apifree_api_key: str = ""
+    apifree_base_url: str = "https://api.apifree.ai/v1"
+    apifree_image_model: str = "google/nano-banana-pro"
+    
     # Google AI (Imagen 3)
     google_ai_api_key: str = ""
 

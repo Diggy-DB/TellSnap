@@ -77,9 +77,11 @@ export interface Scene {
   title: string;
   description?: string;
   topicId?: string;
+  genre?: string;  // auto-detected: action, romance, fantasy, horror, comedy, drama, sci-fi, slice-of-life
   status: SceneStatus;
   segmentCount: number;
   totalDuration: number;
+  thumbnailUrl?: string;
   createdById: string;
   createdAt: Date;
   updatedAt: Date;
@@ -130,16 +132,20 @@ export class FirestoreService implements OnModuleInit {
   constructor() {
     // Initialize Firestore
     const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0432066024';
+    const databaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
     
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       this.db = new Firestore({
         projectId,
+        databaseId,
         keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
       });
     } else {
       // Use default credentials (for Cloud Run, GCE, etc.)
-      this.db = new Firestore({ projectId });
+      this.db = new Firestore({ projectId, databaseId });
     }
+    
+    this.logger.log(`Firestore initializing with project: ${projectId}, database: ${databaseId}`);
   }
 
   async onModuleInit() {
@@ -232,8 +238,15 @@ export class FirestoreService implements OnModuleInit {
     data: Record<string, unknown>,
   ): Promise<string> {
     const now = new Date();
+    // Remove undefined values to avoid Firestore errors
+    const cleanData: Record<string, unknown> = {};
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined) {
+        cleanData[key] = data[key];
+      }
+    });
     const docData = {
-      ...data,
+      ...cleanData,
       createdAt: now,
       updatedAt: now,
     };

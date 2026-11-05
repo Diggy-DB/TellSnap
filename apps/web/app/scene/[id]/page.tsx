@@ -1,18 +1,20 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { api } from '../../../src/lib/api';
+import { useAuth } from '../../../src/lib/auth-context';
 
 interface Segment {
   id: string;
   orderIndex: number;
   prompt: string;
   status: string;
-  videoUrl: string | null;
+  imageUrl: string | null;
   thumbnailUrl: string | null;
-  expandedScript: any;
-  duration: number | null;
+  numPanels?: number;
+  comicStyle?: string;
   createdAt: string;
 }
 
@@ -21,38 +23,30 @@ interface Scene {
   title: string;
   description: string;
   thumbnailUrl: string | null;
+  status: string;
   segments: Segment[];
   topic?: { id: string; title: string };
-  creator?: { username: string };
+  createdBy?: { id: string; username: string; avatarUrl?: string };
   createdAt: string;
 }
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export default function ScenePage() {
   const params = useParams();
   const sceneId = params.id as string;
+  const { isAuthenticated } = useAuth();
   
   const [scene, setScene] = useState<Scene | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   const [showContinueModal, setShowContinueModal] = useState(false);
   const [continuePrompt, setContinuePrompt] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     async function fetchScene() {
       try {
-        const res = await fetch(`${API_BASE}/scenes/${sceneId}`);
-        if (res.ok) {
-          const data = await res.json();
-          // API returns scene directly, not wrapped in data.data
-          setScene(data);
-        } else {
-          console.error('Scene not found, status:', res.status);
-        }
+        const data = await api.getScene(sceneId) as unknown as Scene;
+        setScene(data);
       } catch (error) {
         console.error('Failed to fetch scene:', error);
       } finally {
@@ -67,78 +61,48 @@ export default function ScenePage() {
     if (!scene) return;
     
     const hasPendingSegments = scene.segments.some(
-      s => s.status === 'PENDING' || s.status === 'PROCESSING'
+      s => s.status === 'PENDING' || s.status === 'PROCESSING' || s.status === 'QUEUED'
     );
     
     if (!hasPendingSegments) return;
     
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/scenes/${sceneId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setScene(data);
-          
-          // Check if all segments are done
-          const stillPending = data.segments.some(
-            (s: Segment) => s.status === 'PENDING' || s.status === 'PROCESSING'
-          );
-          if (!stillPending) {
-            clearInterval(interval);
-          }
+        const data = await api.getScene(sceneId) as unknown as Scene;
+        setScene(data);
+        
+        // Check if all segments are done
+        const stillPending = data.segments.some(
+          (s: Segment) => s.status === 'PENDING' || s.status === 'PROCESSING' || s.status === 'QUEUED'
+        );
+        if (!stillPending) {
+          clearInterval(interval);
         }
       } catch (error) {
         console.error('Failed to poll scene:', error);
       }
-    }, 3000); // Poll every 3 seconds
+    }, 3000);
     
     return () => clearInterval(interval);
   }, [scene, sceneId]);
-
-  // Auto-play next segment
-  const handleVideoEnded = () => {
-    const completedSegments = scene?.segments.filter(s => s.status === 'COMPLETED' && s.videoUrl) || [];
-    if (currentSegmentIndex < completedSegments.length - 1) {
-      setCurrentSegmentIndex(currentSegmentIndex + 1);
-    } else {
-      setIsPlaying(false);
-    }
-  };
 
   const handleContinue = async () => {
     if (!continuePrompt.trim()) return;
     
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
       const lastSegment = scene?.segments[scene.segments.length - 1];
-      const nextOrderIndex = (lastSegment?.orderIndex || 0) + 1;
-
-      const res = await fetch(`${API_BASE}/segments/submit-and-generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          sceneId,
-          prompt: continuePrompt,
-          orderIndex: nextOrderIndex,
-        }),
+      
+      await api.continueScene(sceneId, {
+        parentSegmentId: lastSegment?.id || '',
+        prompt: continuePrompt,
       });
 
-      if (res.ok) {
-        setShowContinueModal(false);
-        setContinuePrompt('');
-        // Refresh scene data
-        const sceneRes = await fetch(`${API_BASE}/scenes/${sceneId}`);
-        const data = await sceneRes.json();
-        setScene(data.data);
-        alert('Segment submitted! Video generation started. Refresh in a minute to see the result.');
-      } else {
-        const error = await res.json();
-        alert(error.message || 'Failed to submit segment');
-      }
+      setShowContinueModal(false);
+      setContinuePrompt('');
+      // Refresh scene data
+      const data = await api.getScene(sceneId) as unknown as Scene;
+      setScene(data);
     } catch (error) {
       console.error('Failed to continue scene:', error);
       alert('Failed to submit. Make sure you are logged in.');
@@ -151,9 +115,11 @@ export default function ScenePage() {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-6xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4" />
-            <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4" />
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-cyan border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-gray-400">Loading your comic...</p>
+            </div>
           </div>
         </div>
       </main>
@@ -164,136 +130,169 @@ export default function ScenePage() {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-6xl mx-auto text-center py-16">
+          <div className="text-6xl mb-4">😕</div>
           <h1 className="text-2xl font-bold mb-4">Scene not found</h1>
-          <Link href="/explore" className="btn-primary">
-            Back to Explore
+          <Link href="/" className="px-6 py-3 bg-gradient-to-r from-magenta to-cyan text-white rounded-xl font-bold hover:scale-105 transition-transform inline-block">
+            Back to Home
           </Link>
         </div>
       </main>
     );
   }
 
-  const completedSegments = scene.segments.filter(s => s.status === 'COMPLETED' && s.videoUrl);
-  const pendingSegments = scene.segments.filter(s => s.status !== 'COMPLETED');
-  const currentVideo = completedSegments[currentSegmentIndex];
+  const completedPanels = scene.segments.filter(s => s.status === 'COMPLETED' && s.imageUrl);
+  const pendingPanels = scene.segments.filter(s => s.status !== 'COMPLETED');
+  const currentPanel = completedPanels[currentPanelIndex];
 
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <Link href="/explore" className="text-blue-600 hover:underline mb-2 inline-block">
-            ← Back to Explore
+          <Link href="/" className="text-cyan hover:underline mb-2 inline-block">
+            ← Back to Home
           </Link>
           <h1 className="text-3xl font-bold">{scene.title}</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">{scene.description}</p>
+          <p className="text-gray-400 mt-2">{scene.description}</p>
+          {scene.createdBy && (
+            <p className="text-sm text-gray-500 mt-2">
+              Created by <span className="text-cyan">{scene.createdBy.username}</span>
+            </p>
+          )}
           {scene.topic && (
-            <span className="inline-block mt-2 text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full">
+            <span className="inline-block mt-2 text-sm bg-cyan/20 text-cyan px-3 py-1 rounded-full">
               {scene.topic.title}
             </span>
           )}
         </div>
 
-        {/* Video Player */}
+        {/* Status Banner */}
+        {pendingPanels.length > 0 && (
+          <div className="mb-6 bg-cyan/10 border border-cyan/50 rounded-xl p-4 flex items-center gap-4">
+            <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+            <div>
+              <p className="text-cyan font-medium">Generating panels...</p>
+              <p className="text-sm text-gray-400">
+                {completedPanels.length} of {scene.segments.length} panels complete
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Comic Display */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-              {currentVideo?.videoUrl ? (
-                <video
-                  ref={videoRef}
-                  src={currentVideo.videoUrl}
-                  className="w-full h-full"
-                  controls
-                  autoPlay={isPlaying}
-                  onEnded={handleVideoEnded}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
+            <div className="relative bg-surface rounded-2xl overflow-hidden aspect-[3/4] flex items-center justify-center p-4">
+              {currentPanel?.imageUrl ? (
+                <img
+                  src={currentPanel.imageUrl}
+                  alt={`Panel ${currentPanelIndex + 1}`}
+                  className="max-w-full max-h-full object-contain rounded-xl"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-white">
-                  <div className="text-center">
-                    <p className="text-xl mb-2">🎬</p>
-                    <p>No videos yet</p>
-                  </div>
+                <div className="text-center text-gray-500">
+                  <div className="text-6xl mb-4">🎨</div>
+                  <p>{completedPanels.length === 0 ? 'Panels generating...' : 'No panel selected'}</p>
                 </div>
               )}
             </div>
 
-            {/* Segment Info */}
-            {currentVideo && (
-              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <h3 className="font-semibold mb-2">Segment {currentSegmentIndex + 1}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{currentVideo.prompt}</p>
+            {/* Navigation */}
+            {completedPanels.length > 0 && (
+              <div className="flex items-center justify-between mt-4">
+                <button
+                  onClick={() => setCurrentPanelIndex(Math.max(0, currentPanelIndex - 1))}
+                  disabled={currentPanelIndex === 0}
+                  className="px-4 py-2 bg-surface rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+                >
+                  ← Previous
+                </button>
+                <span className="text-gray-400">
+                  Panel {currentPanelIndex + 1} of {completedPanels.length}
+                </span>
+                <button
+                  onClick={() => setCurrentPanelIndex(Math.min(completedPanels.length - 1, currentPanelIndex + 1))}
+                  disabled={currentPanelIndex >= completedPanels.length - 1}
+                  className="px-4 py-2 bg-surface rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+
+            {/* Panel Info */}
+            {currentPanel && (
+              <div className="mt-4 p-4 bg-surface rounded-xl">
+                <h3 className="font-semibold mb-2">Panel {currentPanelIndex + 1}</h3>
+                <p className="text-sm text-gray-400">{currentPanel.prompt}</p>
               </div>
             )}
 
             {/* Continue Button */}
-            <button
-              onClick={() => setShowContinueModal(true)}
-              className="mt-4 w-full btn-primary py-3 text-lg"
-            >
-              ✨ Continue This Story
-            </button>
+            {isAuthenticated && completedPanels.length > 0 && (
+              <button
+                onClick={() => setShowContinueModal(true)}
+                className="mt-4 w-full py-3 text-lg bg-gradient-to-r from-magenta to-cyan text-white rounded-xl font-bold hover:scale-[1.02] transition-transform"
+              >
+                ✨ Continue This Story
+              </button>
+            )}
           </div>
 
-          {/* Segment Timeline */}
+          {/* Panel Timeline */}
           <div className="lg:col-span-1">
-            <h3 className="font-semibold mb-4">Timeline ({scene.segments.length} segments)</h3>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+            <h3 className="font-semibold mb-4">All Panels ({scene.segments.length})</h3>
+            <div className="grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto">
               {scene.segments.map((segment, idx) => {
-                const isCompleted = segment.status === 'COMPLETED' && segment.videoUrl;
-                const isCurrent = completedSegments[currentSegmentIndex]?.id === segment.id;
+                const isCompleted = segment.status === 'COMPLETED' && segment.imageUrl;
+                const completedIdx = completedPanels.findIndex(s => s.id === segment.id);
+                const isCurrent = completedIdx === currentPanelIndex && isCompleted;
                 
                 return (
-                  <div
+                  <button
                     key={segment.id}
                     onClick={() => {
-                      if (isCompleted) {
-                        const completedIdx = completedSegments.findIndex(s => s.id === segment.id);
-                        if (completedIdx >= 0) setCurrentSegmentIndex(completedIdx);
+                      if (isCompleted && completedIdx >= 0) {
+                        setCurrentPanelIndex(completedIdx);
                       }
                     }}
-                    className={`p-3 rounded-lg cursor-pointer transition-all ${
+                    disabled={!isCompleted}
+                    className={`aspect-[3/4] rounded-xl overflow-hidden border-2 transition-all ${
                       isCurrent
-                        ? 'bg-blue-100 dark:bg-blue-900 border-2 border-blue-500'
+                        ? 'border-cyan shadow-lg shadow-cyan/20'
                         : isCompleted
-                        ? 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        : 'bg-gray-100 dark:bg-gray-900 opacity-60'
+                        ? 'border-transparent hover:border-gray-600'
+                        : 'border-dashed border-gray-700 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-10 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden flex-shrink-0">
-                        {segment.thumbnailUrl ? (
-                          <img src={segment.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                    {segment.imageUrl ? (
+                      <img src={segment.imageUrl} alt={`Panel ${idx + 1}`} className="w-full h-full object-cover" />
+                    ) : segment.thumbnailUrl ? (
+                      <img src={segment.thumbnailUrl} alt={`Panel ${idx + 1}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-surface flex flex-col items-center justify-center text-gray-500">
+                        {segment.status === 'COMPLETED' ? (
+                          <span className="text-2xl">🎨</span>
+                        ) : segment.status === 'PROCESSING' || segment.status === 'QUEUED' ? (
+                          <>
+                            <div className="w-6 h-6 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mb-2" />
+                            <span className="text-xs">Panel {idx + 1}</span>
+                          </>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs">
-                            {segment.status === 'COMPLETED' ? '🎬' : segment.status === 'PROCESSING' ? '⏳' : '📝'}
-                          </div>
+                          <span className="text-xs">Panel {idx + 1}</span>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">Segment {segment.orderIndex + 1}</p>
-                        <p className="text-xs text-gray-500 truncate">{segment.prompt}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                          segment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                          segment.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
-                          segment.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {segment.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    )}
+                  </button>
                 );
               })}
-              
-              {pendingSegments.length > 0 && (
-                <p className="text-sm text-gray-500 text-center py-2">
-                  {pendingSegments.length} segment(s) generating...
-                </p>
-              )}
             </div>
+            
+            {pendingPanels.length > 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">
+                {pendingPanels.length} panel(s) generating...
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -301,30 +300,30 @@ export default function ScenePage() {
       {/* Continue Modal */}
       {showContinueModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full">
+          <div className="bg-surface rounded-2xl p-6 max-w-lg w-full border border-gray-700">
             <h2 className="text-xl font-bold mb-4">Continue the Story</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              What happens next? Describe the next scene and our AI will generate it.
+            <p className="text-gray-400 mb-4">
+              What happens next? Describe the next panel and our AI will generate it.
             </p>
             <textarea
               value={continuePrompt}
               onChange={(e) => setContinuePrompt(e.target.value)}
-              placeholder="The spaceship enters a mysterious nebula, where strange lights dance around the hull..."
-              className="w-full h-32 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 resize-none"
+              placeholder="The hero unleashes their ultimate attack, energy crackling around them..."
+              className="w-full h-32 p-3 bg-black/30 border border-gray-700 rounded-xl resize-none text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan"
             />
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => setShowContinueModal(false)}
-                className="btn-secondary flex-1"
+                className="flex-1 py-3 bg-gray-700 rounded-xl font-medium hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleContinue}
                 disabled={submitting || !continuePrompt.trim()}
-                className="btn-primary flex-1 disabled:opacity-50"
+                className="flex-1 py-3 bg-gradient-to-r from-magenta to-cyan text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
               >
-                {submitting ? 'Submitting...' : 'Generate Segment'}
+                {submitting ? 'Submitting...' : 'Generate Panel'}
               </button>
             </div>
           </div>

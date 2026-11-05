@@ -76,6 +76,20 @@ class ApiClient {
     return this.request<{ id: string; email: string; username: string; role: string }>('/auth/me');
   }
 
+  async forgotPassword(email: string) {
+    return this.request<{ success: boolean; message: string; resetToken?: string; resetUrl?: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    return this.request<{ success: boolean; message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    });
+  }
+
   // Topics
   async getTopics() {
     return this.request<{ items: Topic[] }>('/topics');
@@ -86,7 +100,7 @@ class ApiClient {
   }
 
   // Scenes
-  async getScenes(params?: { topicId?: string; page?: number; limit?: number }) {
+  async getScenes(params?: { topicId?: string; genre?: string; page?: number; limit?: number }) {
     return this.request<{ items: Scene[]; meta: PaginationMeta }>('/scenes', { params });
   }
 
@@ -144,6 +158,7 @@ interface Scene {
   title: string;
   description: string;
   thumbnailUrl: string | null;
+  genre?: string;  // auto-detected genre
   segmentCount: number;
   likeCount: number;
   createdAt: string;

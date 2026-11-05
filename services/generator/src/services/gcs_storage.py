@@ -119,11 +119,11 @@ class GCSStorageService:
         blob = self.bucket.blob(destination_path)
         blob.upload_from_string(data, content_type=content_type)
         
-        # Make publicly accessible
-        blob.make_public()
+        # For uniform bucket-level access, we rely on bucket IAM for public access
+        # Instead of blob.make_public() which uses legacy ACLs
         
         logger.debug("Uploaded bytes", path=destination_path, size=len(data))
-        return blob.public_url
+        return self.get_public_url(destination_path)
 
     def _upload_file(
         self,
@@ -144,10 +144,10 @@ class GCSStorageService:
         blob.cache_control = "public, max-age=31536000"
         blob.patch()
         
-        # Make publicly accessible
-        blob.make_public()
+        # For uniform bucket-level access, we rely on bucket IAM for public access
+        # Instead of blob.make_public() which uses legacy ACLs
         
-        return blob.public_url
+        return self.get_public_url(gcs_path)
 
     def delete_file(self, gcs_path: str) -> bool:
         """Delete a file from GCS."""

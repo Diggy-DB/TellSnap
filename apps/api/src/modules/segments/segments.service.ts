@@ -44,8 +44,9 @@ export class SegmentsService {
   async getForScene(sceneId: string) {
     const segments = await this.firestore.findMany<Segment>('segments', {
       where: [{ field: 'sceneId', op: '==', value: sceneId }],
-      orderBy: [{ field: 'orderIndex', direction: 'asc' }],
     });
+    // Sort in-memory to avoid composite index requirement
+    segments.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
     return Promise.all(
       segments.map(async (segment) => {
@@ -78,9 +79,9 @@ export class SegmentsService {
     // Get last segment to determine order index
     const segments = await this.firestore.findMany<Segment>('segments', {
       where: [{ field: 'sceneId', op: '==', value: dto.sceneId }],
-      orderBy: [{ field: 'orderIndex', direction: 'desc' }],
-      limit: 1,
     });
+    // Sort in-memory to get last segment
+    segments.sort((a, b) => (b.orderIndex || 0) - (a.orderIndex || 0));
 
     // Determine order index
     let orderIndex = dto.orderIndex;
@@ -259,13 +260,13 @@ export class SegmentsService {
    * Get previous segments in a scene (for context).
    */
   async getPreviousSegments(sceneId: string, beforeOrderIndex: number) {
-    return this.firestore.findMany<Segment>('segments', {
-      where: [
-        { field: 'sceneId', op: '==', value: sceneId },
-        { field: 'orderIndex', op: '<', value: beforeOrderIndex },
-      ],
-      orderBy: [{ field: 'orderIndex', direction: 'asc' }],
+    const segments = await this.firestore.findMany<Segment>('segments', {
+      where: [{ field: 'sceneId', op: '==', value: sceneId }],
     });
+    // Filter and sort in-memory to avoid composite index requirement
+    return segments
+      .filter(s => (s.orderIndex || 0) < beforeOrderIndex)
+      .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
   }
 
   async updateStatus(

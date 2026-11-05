@@ -42,6 +42,7 @@ class ExpandedScript:
     num_panels: int  # Number of panels for this segment
     panels: list[PanelDescription]  # Individual panel descriptions
     comic_style: str  # manga, manhwa, western_comic, webtoon
+    genre: str = "action"  # Detected genre: action, romance, comedy, thriller, slice-of-life, fantasy
     raw_response: str = ""
 
 
@@ -143,6 +144,7 @@ class ScriptExpander:
                 num_panels=result.get("num_panels", len(panels)),
                 panels=panels,
                 comic_style=comic_style,
+                genre=result.get("genre", "action"),
                 raw_response=raw_response,
             )
 
@@ -199,6 +201,7 @@ You MUST respond with a valid JSON object containing these fields:
     "visual_notes": "Art style notes, special effects, emotional emphasis",
     "panel_layout": "vertical_3 or grid_2x2 or mixed_5 etc.",
     "mood_and_atmosphere": "Overall emotional tone and visual atmosphere",
+    \"genre\": "action",  // One of: action, romance, comedy, thriller, slice-of-life, fantasy
     "num_panels": 3,
     "panels": [
         {{

@@ -110,10 +110,17 @@ async def process_generation_job(job: Job, token: str) -> dict:
             comic_style=comic_style,
         )
 
-        # Save expanded script
+        # Save expanded script and genre
         db.update_segment(segment_id, {
             "expanded_script": expanded.full_script,
+            "genre": expanded.genre,
         })
+        
+        # Update scene with detected genre (if this is the first segment)
+        db.update_scene(scene_id, {
+            "genre": expanded.genre,
+        })
+        
         update_progress(db, job_id, 25, "script_expanded")
 
         log.info(
@@ -144,6 +151,7 @@ async def process_generation_job(job: Job, token: str) -> dict:
             style=comic_style,
             page_layout=expanded.panel_layout,
             aspect_ratio="9:16",  # Portrait for manga/manhwa
+            user_prompt=user_prompt,  # Pass original prompt for better accuracy
         )
 
         update_progress(db, job_id, 70, "comic_generated")
@@ -177,9 +185,9 @@ async def process_generation_job(job: Job, token: str) -> dict:
         # Update segment with image URLs
         db.update_segment(segment_id, {
             "status": "COMPLETED",
-            "image_url": image_url,
-            "thumbnail_url": thumbnail_url,
-            "num_panels": comic_result.num_panels,
+            "imageUrl": image_url,
+            "thumbnailUrl": thumbnail_url,
+            "numPanels": comic_result.num_panels,
         })
 
         # Update job as completed
@@ -262,7 +270,7 @@ async def main():
             raise
 
     worker = Worker(
-        "generate-comic",  # Queue name - matches NestJS BullMQ queue
+        "generation",  # Queue name - matches NestJS BullMQ queue
         process_job_wrapper,
         {
             "connection": {
@@ -276,7 +284,7 @@ async def main():
         },
     )
 
-    logger.info(f"Worker started, listening on queue 'generate-comic' at {redis_host}:{redis_port}")
+    logger.info(f"Worker started, listening on queue 'generation' at {redis_host}:{redis_port}")
 
     # Keep worker running
     try:
