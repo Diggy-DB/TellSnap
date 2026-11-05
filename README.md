@@ -1,53 +1,43 @@
-# StoryForge
+# Imagify (formerly StoryForge)
 
-> A collaborative video story platform where users build narrative scenes together, generating AI-powered video segments with strict character continuity.
+> A collaborative AI-powered video story platform where users build narrative scenes together, generating AI-powered comic/video segments with character continuity.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11-green.svg)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-10-red.svg)](https://nestjs.com/)
 
 ---
 
-## 🎬 What is StoryForge?
+## 🎬 What is Imagify?
 
-StoryForge is a web platform where users collaboratively build story scenes and generate videos in segments. Users can:
+Imagify is a web platform where users collaboratively build story scenes and generate AI-powered comic/video segments. Users can:
 
-- Browse curated **Topics** and **Categories**
-- Submit **Ideas** (story prompts)
-- Create and continue **Scenes** with AI-generated video segments
-- Maintain **strict character continuity** across all segments via the Scene Bible system
-- Watch complete story timelines as seamless playlists
-
-The platform handles massive scale for data/videos and ensures characters never "drift" across segments.
+- **Browse Topics** - Explore curated story categories
+- **Create Scenes** - Start new stories with custom prompts
+- **Continue Stories** - Add segments to existing scenes
+- **Maintain Continuity** - Scene Bible system keeps characters consistent
+- **Watch & Share** - View completed story timelines
 
 ---
 
 ## ✨ Features
 
 ### Core Features
-- **User Authentication** - Signup, login, profiles, sessions
-- **Topic & Category Browsing** - Curated taxonomy with user submissions (moderated)
-- **Idea Submission** - User-generated story prompts
-- **Scene Creation** - Start new scenes from ideas
-- **Scene Continuation** - Add segments to existing scenes
-- **AI Script Expansion** - Fast agent-based script generation
-- **Video Generation** - Async pipeline for video creation
-- **Segment Playback** - HLS streaming with CDN delivery
+- **🔐 User Authentication** - JWT-based signup/login with secure sessions
+- **🏠 Explore Stories** - Browse and discover scenes by topic
+- **✏️ Scene Creation** - Create new collaborative stories
+- **🎬 AI Image Generation** - Generate comic panels with Google AI (Imagen 3) or OpenAI
+- **📖 Scene Bible** - Automatic character/setting continuity tracking
+- **🔄 Continue & Fork** - Add segments or branch existing scenes
+- **🔍 Search** - Find scenes by topic, title, or creator
 
-### Continuity System
-- **Scene Bible** - Canonical JSON with characters, settings, timeline
-- **Character Entity IDs** - Stable identifiers prevent name drift
-- **Continuity Validator** - Gates generation, detects contradictions
-- **Auto-correction** - Fixes minor issues automatically
-- **Reference Assets** - Character portraits, style frames, voice anchors
-
-### Scale & Performance
-- **Object Storage** - S3-compatible for enormous media volumes
-- **CDN Delivery** - Global edge caching for video streaming
-- **Database Partitioning** - Time-based partitions for segments/jobs
-- **Read Replicas** - Separate read traffic for browse-heavy loads
-- **Redis Caching** - Hot data for scene pages, topics, job status
-- **Search Index** - OpenSearch for discovery at scale
+### AI Pipeline
+- **Script Expansion** - AI expands user prompts into detailed scripts
+- **Script Segmentation** - Breaks scripts into panel-by-panel segments
+- **Image Generation** - Creates comic panels via Google AI or OpenAI
+- **Continuity Validation** - Ensures character consistency across segments
 
 ---
 
@@ -55,111 +45,87 @@ The platform handles massive scale for data/videos and ensures characters never 
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 14, TypeScript, TailwindCSS, React Query |
-| API Server | NestJS, TypeScript, Prisma ORM |
-| Worker | Python 3.11, Celery, Redis |
-| Database | PostgreSQL 15 (with partitioning) |
-| Cache/Queue | Redis 7 (caching + BullMQ) |
-| Storage | S3-compatible (AWS S3 / MinIO) |
-| Streaming | HLS via CDN (CloudFront / Cloudflare) |
-| Search | OpenSearch (optional for MVP) |
-| Auth | NextAuth.js + JWT |
-| Deployment | Docker, Docker Compose, Kubernetes (V1+) |
+| **Frontend** | Next.js 14, TypeScript, TailwindCSS, React Query, Zustand |
+| **API Server** | NestJS 10, TypeScript, Passport JWT |
+| **Database** | Google Cloud Firestore |
+| **Cache/Queue** | Redis 7, BullMQ |
+| **Storage** | Google Cloud Storage |
+| **AI Generation** | Google AI (Imagen 3), OpenAI GPT-4 |
+| **Worker** | Python 3.11, FastAPI, BullMQ |
+| **Auth** | JWT + Passport |
+| **Monorepo** | Turborepo, pnpm workspaces |
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-storyforge/
+Hackathon/
 ├── apps/
-│   ├── web/                    # Next.js frontend application
-│   │   ├── src/
-│   │   │   ├── app/            # App router pages
-│   │   │   ├── components/     # React components
-│   │   │   ├── hooks/          # Custom React hooks
-│   │   │   ├── lib/            # Utilities and API client
-│   │   │   └── styles/         # Global styles
-│   │   ├── public/             # Static assets
-│   │   └── package.json
+│   ├── web/                    # Next.js frontend
+│   │   └── src/
+│   │       ├── app/            # App Router pages
+│   │       │   ├── page.tsx         # Home page
+│   │       │   ├── explore/         # Browse scenes
+│   │       │   ├── create/          # Create new scene
+│   │       │   ├── scene/[id]/      # View/continue scene
+│   │       │   └── login/           # Authentication
+│   │       ├── components/     # React components
+│   │       │   ├── Header.tsx
+│   │       │   ├── Player.tsx
+│   │       │   ├── SceneTimeline.tsx
+│   │       │   ├── ContinueModal.tsx
+│   │       │   └── GenreCards.tsx
+│   │       ├── lib/            # Utilities & API client
+│   │       │   ├── api.ts
+│   │       │   └── auth-context.tsx
+│   │       └── styles/         # Global styles
 │   │
 │   └── api/                    # NestJS API server
-│       ├── src/
-│       │   ├── modules/        # Feature modules
-│       │   │   ├── auth/
-│       │   │   ├── users/
-│       │   │   ├── topics/
-│       │   │   ├── ideas/
-│       │   │   ├── scenes/
-│       │   │   ├── segments/
-│       │   │   ├── jobs/
-│       │   │   └── moderation/
-│       │   ├── common/         # Shared utilities
-│       │   ├── database/       # Prisma schema and migrations
-│       │   └── main.ts
-│       └── package.json
+│       └── src/
+│           ├── modules/
+│           │   ├── auth/       # JWT authentication
+│           │   ├── scenes/     # Scene CRUD
+│           │   ├── segments/   # Video segments
+│           │   ├── topics/     # Story categories
+│           │   └── jobs/       # Background jobs
+│           ├── firestore/      # Firestore integration
+│           ├── redis/          # Redis caching
+│           └── main.ts
 │
 ├── services/
-│   └── generator/              # Python video generation worker
-│       ├── src/
-│       │   ├── agents/         # AI agents (script expansion)
-│       │   ├── continuity/     # Scene Bible & validator
-│       │   ├── video/          # Video generation pipeline
-│       │   ├── storage/        # S3 upload utilities
-│       │   └── worker.py       # Celery worker entry
-│       ├── requirements.txt
-│       └── Dockerfile
+│   └── generator/              # Python AI generation worker
+│       └── src/
+│           ├── api.py          # FastAPI endpoints
+│           ├── bullmq_worker.py # Job queue worker
+│           ├── config.py       # Settings
+│           └── services/
+│               ├── comic_generator.py   # Image generation
+│               ├── script_expander.py   # AI script expansion
+│               ├── script_segmenter.py  # Panel segmentation
+│               ├── continuity.py        # Scene Bible
+│               ├── firestore_db.py      # Database
+│               └── gcs_storage.py       # Cloud Storage
 │
 ├── packages/
-│   └── shared/                 # Shared TypeScript types/utilities
-│       ├── src/
-│       │   ├── types/          # Shared type definitions
-│       │   ├── constants/      # Shared constants
-│       │   └── validation/     # Zod schemas
-│       └── package.json
+│   └── shared/                 # Shared TypeScript types
+│       └── src/
 │
 ├── docs/                       # Documentation
-│   ├── 00-index.md
 │   ├── 01-product-spec.md
 │   ├── 02-architecture.md
 │   ├── 03-database-schema.md
 │   ├── 04-api-spec.md
 │   ├── 05-continuity-system.md
-│   ├── 06-async-pipeline.md
-│   ├── 07-video-storage.md
-│   ├── 08-scalability.md
-│   ├── 09-security.md
-│   ├── 10-risk-register.md
-│   ├── 11-roadmap.md
-│   └── adr/                    # Architecture Decision Records
-│       ├── 001-monorepo-structure.md
-│       ├── 002-scene-bible-design.md
-│       └── 003-video-segment-strategy.md
+│   └── ...
 │
 ├── infra/
-│   ├── docker/
-│   │   ├── docker-compose.yml
-│   │   ├── docker-compose.dev.yml
-│   │   └── docker-compose.prod.yml
-│   ├── kubernetes/             # K8s manifests (V1+)
-│   └── terraform/              # Infrastructure as Code
+│   └── docker/                 # Docker configs
 │
-├── scripts/
-│   ├── setup.sh
-│   ├── seed-db.ts
-│   └── migrate.sh
-│
-├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml
-│   │   └── deploy.yml
-│   └── CODEOWNERS
-│
-├── .env.example
-├── package.json                # Root package.json (workspaces)
+├── docker-compose.yml          # Local development
+├── package.json                # Root (workspaces)
 ├── turbo.json                  # Turborepo config
-├── pnpm-workspace.yaml
-└── README.md
+└── pnpm-workspace.yaml
 ```
 
 ---
@@ -168,16 +134,16 @@ storyforge/
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 18+
 - Python 3.11+
-- Docker & Docker Compose
 - pnpm 8+
+- Redis (local or Docker)
+- Google Cloud Project (for Firestore + Storage)
 
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/your-org/storyforge.git
-cd storyforge
+cd Hackathon
 pnpm install
 ```
 
@@ -188,238 +154,205 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-### 3. Start with Docker Compose
+Required environment variables:
 
 ```bash
-# Start all services (database, redis, minio)
-docker compose -f infra/docker/docker-compose.dev.yml up -d
+# Google Cloud
+GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
+GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
+GCS_BUCKET="your-bucket-name"
 
-# Run database migrations
-pnpm db:migrate
+# Redis
+REDIS_URL="redis://localhost:6379"
 
-# Seed initial data
-pnpm db:seed
+# Auth
+JWT_ACCESS_SECRET="your-secret"
+JWT_REFRESH_SECRET="your-refresh-secret"
+
+# AI Providers (at least one required)
+OPENAI_API_KEY="sk-..."
+GOOGLE_AI_API_KEY="your-google-ai-key"
+```
+
+### 3. Start Redis (if not running)
+
+```bash
+# Using Docker
+docker run -d -p 6379:6379 redis:7-alpine
+
+# Or use docker-compose
+docker compose up -d redis
 ```
 
 ### 4. Run Development Servers
 
 ```bash
-# Terminal 1: API Server
-pnpm --filter api dev
+# Option 1: Run all with Turborepo
+pnpm run dev
 
-# Terminal 2: Web App
-pnpm --filter web dev
+# Option 2: Run individually
 
-# Terminal 3: Generator Worker
+# Terminal 1: Frontend (http://localhost:3000)
+cd apps/web && pnpm run dev
+
+# Terminal 2: API Server (http://localhost:3001)
+cd apps/api && pnpm run dev
+
+# Terminal 3: Generator Worker (http://localhost:8080)
 cd services/generator
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-celery -A src.worker worker --loglevel=info
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn src.api:app --reload --port 8080
 ```
 
 ### 5. Access the Application
 
-- **Web App**: http://localhost:3000
-- **API Server**: http://localhost:4000
-- **API Docs**: http://localhost:4000/docs
-- **MinIO Console**: http://localhost:9001
+| Service | URL |
+|---------|-----|
+| **Web App** | http://localhost:3000 |
+| **API Server** | http://localhost:3001 |
+| **Generator API** | http://localhost:8080 |
 
 ---
 
-## ⚙️ Environment Variables
+## 📚 API Endpoints
 
-```bash
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/storyforge
-DATABASE_REPLICA_URL=postgresql://user:password@localhost:5433/storyforge
+### Authentication
+```
+POST /api/v1/auth/signup     # Create account
+POST /api/v1/auth/login      # Login, get JWT tokens
+POST /api/v1/auth/refresh    # Refresh access token
+GET  /api/v1/auth/me         # Get current user
+```
 
-# Redis
-REDIS_URL=redis://localhost:6379
+### Topics
+```
+GET  /api/v1/topics          # List all topics
+GET  /api/v1/topics/:id      # Get topic details
+```
 
-# Storage (S3-compatible)
-S3_ENDPOINT=http://localhost:9000
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin
-S3_BUCKET_VIDEOS=storyforge-videos
-S3_BUCKET_ASSETS=storyforge-assets
+### Scenes
+```
+GET  /api/v1/scenes          # List scenes (with filters)
+GET  /api/v1/scenes/:id      # Get scene with segments
+POST /api/v1/scenes          # Create new scene (auth required)
+```
 
-# CDN
-CDN_BASE_URL=https://cdn.storyforge.io
+### Segments
+```
+POST /api/v1/scenes/:id/segments  # Add segment to scene
+GET  /api/v1/segments/:id         # Get segment details
+```
 
-# Auth
-JWT_SECRET=your-super-secret-key
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-nextauth-secret
-
-# AI Services
-OPENAI_API_KEY=sk-...
-VIDEO_GENERATION_API_URL=https://api.video-gen.io
-VIDEO_GENERATION_API_KEY=...
-
-# Observability
-SENTRY_DSN=https://...
-LOG_LEVEL=debug
+### Jobs
+```
+GET  /api/v1/jobs/:id        # Get generation job status
 ```
 
 ---
 
-## 📡 API Overview
+## 🔄 Generation Pipeline
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/signup` | Register new user |
-| POST | `/api/v1/auth/login` | Login |
-| POST | `/api/v1/auth/logout` | Logout |
-| GET | `/api/v1/auth/me` | Get current user |
-
-### Topics & Categories
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/topics` | List topics |
-| GET | `/api/v1/topics/:id` | Get topic details |
-| POST | `/api/v1/topics` | Create topic (moderated) |
-| GET | `/api/v1/categories` | List categories |
-
-### Ideas
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/ideas` | List ideas |
-| POST | `/api/v1/ideas` | Submit new idea |
-| GET | `/api/v1/ideas/:id` | Get idea details |
-
-### Scenes & Segments
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/scenes` | List scenes |
-| POST | `/api/v1/scenes` | Create scene from idea |
-| GET | `/api/v1/scenes/:id` | Get scene with segments |
-| POST | `/api/v1/scenes/:id/continue` | Continue scene (returns jobId) |
-| GET | `/api/v1/scenes/:id/bible` | Get Scene Bible |
-| GET | `/api/v1/scenes/:id/playlist` | Get HLS playlist |
-
-### Jobs
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/jobs/:id` | Get job status |
-| GET | `/api/v1/jobs/:id/progress` | Get detailed progress |
-| POST | `/api/v1/jobs/:id/retry` | Retry failed job |
-
-### Moderation
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/report` | Report content |
-| GET | `/api/v1/moderation/queue` | Moderation queue (admin) |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AI GENERATION PIPELINE                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. User submits scene prompt                                   │
+│                              │                                   │
+│                              ▼                                   │
+│  2. Script Expander (GPT-4)                                     │
+│     • Expands prompt into detailed narrative                    │
+│     • Maintains Scene Bible continuity                          │
+│                              │                                   │
+│                              ▼                                   │
+│  3. Script Segmenter                                            │
+│     • Breaks script into panel-by-panel segments                │
+│     • Generates image prompts for each panel                    │
+│                              │                                   │
+│                              ▼                                   │
+│  4. Comic Generator                                             │
+│     • Google AI (Imagen 3) or OpenAI                           │
+│     • Creates comic panel images                                │
+│                              │                                   │
+│                              ▼                                   │
+│  5. Storage                                                     │
+│     • Upload to Google Cloud Storage                            │
+│     • Update Firestore with URLs                               │
+│                              │                                   │
+│                              ▼                                   │
+│  6. Real-time Update                                            │
+│     • Notify frontend via WebSocket/polling                    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 📚 Documentation Index
+## 🛠️ Development
 
-| Doc | Description |
-|-----|-------------|
-| [00-index.md](docs/00-index.md) | Documentation overview and navigation |
-| [01-product-spec.md](docs/01-product-spec.md) | Product requirements and user flows |
-| [02-architecture.md](docs/02-architecture.md) | System architecture and service design |
-| [03-database-schema.md](docs/03-database-schema.md) | PostgreSQL schema with indexes |
-| [04-api-spec.md](docs/04-api-spec.md) | Complete REST API specification |
-| [05-continuity-system.md](docs/05-continuity-system.md) | Scene Bible and continuity validation |
-| [06-async-pipeline.md](docs/06-async-pipeline.md) | Job queue and processing pipeline |
-| [07-video-storage.md](docs/07-video-storage.md) | Video storage and HLS streaming |
-| [08-scalability.md](docs/08-scalability.md) | Caching, partitioning, replicas |
-| [09-security.md](docs/09-security.md) | Auth, rate limiting, moderation |
-| [10-risk-register.md](docs/10-risk-register.md) | Problems and solutions |
-| [11-roadmap.md](docs/11-roadmap.md) | MVP → V1 → V2 phases |
+### Run Tests
 
----
+```bash
+# Frontend/API tests
+pnpm test
 
-## 🎯 Acceptance Criteria (MVP)
+# Generator tests
+cd services/generator
+pytest tests/ -v
+```
 
-- [ ] User can sign up, log in, and log out
-- [ ] User can browse topics, categories, and scenes
-- [ ] User can submit a scene continuation and receive jobId instantly (<500ms)
-- [ ] Script expansion completes within 10 seconds
-- [ ] Continuity validator blocks contradictions
-- [ ] Video job completes and segment appears in scene playback
-- [ ] Segments maintain consistent character IDs (Scene Bible enforced)
-- [ ] Scene plays as seamless segment playlist
+### Lint & Format
 
----
+```bash
+pnpm lint
+pnpm format
+```
 
-## 🗺️ Roadmap
+### Database Operations
 
-### MVP
-- Core auth and user management
-- Topic/category/idea CRUD
-- Scene creation and continuation
-- Basic job pipeline (script → video)
-- Scene Bible initialization
-- Basic continuity validation
-- Segment storage and playback
+```bash
+# Generate Prisma client (if using Prisma)
+pnpm db:generate
 
-### V1
-- HLS streaming with CDN
-- Database partitioning
-- Read replicas
-- Advanced continuity validation
-- Reference asset support
-- Moderation system
-- Rate limiting and abuse prevention
-
-### V2
-- Scene forking and rebasing
-- Recommendation engine
-- Full-text search (OpenSearch)
-- Analytics dashboard
-- Monetization features
-- Mobile-responsive optimization
+# Run migrations
+pnpm db:migrate
+```
 
 ---
 
-## 🤝 Contributing
+## 📖 Documentation
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Detailed documentation is available in the `/docs` folder:
+
+- [Product Spec](docs/01-product-spec.md)
+- [Architecture](docs/02-architecture.md)
+- [Database Schema](docs/03-database-schema.md)
+- [API Specification](docs/04-api-spec.md)
+- [Continuity System](docs/05-continuity-system.md)
+- [Async Pipeline](docs/06-async-pipeline.md)
+- [Storage](docs/07-video-storage.md)
+- [Scalability](docs/08-scalability.md)
+- [Security](docs/09-security.md)
+
+---
+
+## 🔐 Security Notes
+
+- JWT tokens stored in localStorage (access) and httpOnly cookies (refresh)
+- All API endpoints requiring auth use Passport JWT guards
+- Google Cloud credentials should never be committed
+- Use environment variables for all secrets
+
+---
+
+## 👨‍💻 Author
+
+**David**
 
 ---
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## 🙏 Acknowledgments
-
-Built with ❤️ for collaborative storytelling.
-
----
-
-# Frontend Development
-
-## Overview
-This section will cover the frontend development for the project, including technologies used, design principles, and implementation details.
-
-## Technologies Used
-- HTML
-- CSS
-- JavaScript
-- React
-
-## Design Principles
-- Responsive Design
-- User-Centered Design
-- Accessibility
-
-## Implementation Details
-- Structure of the application
-- Component hierarchy
-- State management
-
-## Getting Started
-To get started with the frontend development, follow the instructions below:
-1. Clone the repository.
-2. Install dependencies using `npm install`.
-3. Start the development server using `npm start`. 
-
-## Conclusion
-This document will be updated as the frontend development progresses.
+This project is licensed under the MIT License.

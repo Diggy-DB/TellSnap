@@ -23,7 +23,7 @@ export default function Header(){
               </svg>
             </div>
             <div>
-              <div className="text-lg font-semibold">StoryForge</div>
+              <div className="text-lg font-semibold">Imagify</div>
             </div>
           </a>
         </div>

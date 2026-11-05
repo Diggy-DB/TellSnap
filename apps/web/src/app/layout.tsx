@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'StoryForge - Collaborative Video Stories',
+  title: 'Imagify - Collaborative Video Stories',
   description: 'Create and collaborate on AI-generated video stories',
 };
 
