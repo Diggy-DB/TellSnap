@@ -465,12 +465,6 @@ Storify's earlier commit history is in [puppyhacker-0/Storify](https://github.co
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
-
 <p align="center">
   <b>TellSnap</b> - Where memories become meditations and stories come alive ✨
 </p>

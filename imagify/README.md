@@ -2,7 +2,6 @@
 
 > A collaborative AI-powered video story platform where users build narrative scenes together, generating AI-powered comic/video segments with character continuity.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11-green.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
@@ -350,9 +349,3 @@ Detailed documentation is available in the `/docs` folder:
 ## 👨‍💻 Author
 
 **David**
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License.

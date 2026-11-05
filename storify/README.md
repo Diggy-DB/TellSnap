@@ -2,7 +2,7 @@
 
 **Relive Your Memories** — A beautiful, interactive storytelling web app that transforms your photos and memories into narrated stories with AI-powered voice.
 
-![Storify](https://img.shields.io/badge/Version-1.0.0-green) ![License](https://img.shields.io/badge/License-MIT-blue)
+![Storify](https://img.shields.io/badge/Version-1.0.0-green)
 
 🌐 **Live Demo:** [https://storify-memories.surge.sh](https://storify-memories.surge.sh)
 
@@ -150,12 +150,6 @@ Contributions are welcome! Feel free to:
 2. Create a feature branch
 3. Make your changes
 4. Submit a pull request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License — feel free to use it for personal or commercial projects.
 
 ---
 
