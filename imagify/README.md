@@ -1,6 +1,6 @@
 # Imagify (formerly StoryForge)
 
-> A collaborative AI-powered video story platform where users build narrative scenes together, generating AI-powered comic/video segments with character continuity.
+> A collaborative AI comic platform: someone starts a story from a prompt, others continue it, and AI draws each new page.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11-green.svg)](https://www.python.org/)
@@ -11,32 +11,32 @@
 
 ## 🎬 What is Imagify?
 
-Imagify is a web platform where users collaboratively build story scenes and generate AI-powered comic/video segments. Users can:
+Imagify is a web platform where users build comic stories together. Users can:
 
-- **Browse Topics** - Explore curated story categories
-- **Create Scenes** - Start new stories with custom prompts
-- **Continue Stories** - Add segments to existing scenes
-- **Maintain Continuity** - Scene Bible system keeps characters consistent
-- **Watch & Share** - View completed story timelines
+- **Browse Stories** - Explore comics by genre or topic
+- **Create Scenes** - Start a new story from a prompt; long prompts are split into several pages
+- **Continue Stories** - Add the next page to an existing story
+- **Read Comics** - View each story's pages as a timeline
 
 ---
 
 ## ✨ Features
 
 ### Core Features
-- **🔐 User Authentication** - JWT-based signup/login with secure sessions
-- **🏠 Explore Stories** - Browse and discover scenes by topic
-- **✏️ Scene Creation** - Create new collaborative stories
-- **🎬 AI Image Generation** - Generate comic panels with Google AI (Imagen 3) or OpenAI
-- **📖 Scene Bible** - Automatic character/setting continuity tracking
-- **🔄 Continue & Fork** - Add segments or branch existing scenes
-- **🔍 Search** - Find scenes by topic, title, or creator
+
+- **🔐 User Authentication** - Signup and login with JWT access and refresh tokens
+- **🏠 Explore Stories** - Browse scenes and filter by topic or genre; sort by recent, popular, or trending
+- **✏️ Scene Creation** - Create a scene from a prompt; the generator splits long prompts into multiple comic pages
+- **➕ Continue Stories** - Logged-in users add new pages to any scene
+- **🎨 AI Comic Pages** - Each page is expanded into panels, drawn by AI, and composed into a single image
+- **📖 Scene Bible** - Every scene has a Scene Bible (characters, locations, rules) that is passed to script expansion. It starts empty; filling it in automatically is a planned feature.
 
 ### AI Pipeline
-- **Script Expansion** - AI expands user prompts into detailed scripts
-- **Script Segmentation** - Breaks scripts into panel-by-panel segments
-- **Image Generation** - Creates comic panels via Google AI or OpenAI
-- **Continuity Validation** - Ensures character consistency across segments
+
+1. **Script Analysis** - The generator API decides whether a prompt needs several pages and splits it
+2. **Script Expansion** - An OpenAI chat model turns each page prompt into panel descriptions, using earlier pages and the Scene Bible for continuity (without an OpenAI key, a simple fallback script is used)
+3. **Panel Images** - Generated with Nano Banana Pro (apifree.ai), DALL-E 3 (OpenAI), or Imagen 3 (Google), trying them in that order
+4. **Page Composition** - Panels are laid out into one comic page with Pillow, uploaded to Google Cloud Storage, and saved to Firestore
 
 ---
 
@@ -44,87 +44,57 @@ Imagify is a web platform where users collaboratively build story scenes and gen
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | Next.js 14, TypeScript, TailwindCSS, React Query, Zustand |
-| **API Server** | NestJS 10, TypeScript, Passport JWT |
+| **Frontend** | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS |
+| **API Server** | NestJS 10, TypeScript, Passport JWT, Swagger |
 | **Database** | Google Cloud Firestore |
-| **Cache/Queue** | Redis 7, BullMQ |
+| **Queue** | Redis 7, BullMQ |
 | **Storage** | Google Cloud Storage |
-| **AI Generation** | Google AI (Imagen 3), OpenAI GPT-4 |
-| **Worker** | Python 3.11, FastAPI, BullMQ |
-| **Auth** | JWT + Passport |
-| **Monorepo** | Turborepo, pnpm workspaces |
+| **Worker** | Python 3.11+, BullMQ (Python), FastAPI, Pillow |
+| **AI** | OpenAI (script expansion, DALL-E 3), Nano Banana Pro via apifree.ai, Google Imagen 3 |
+| **Monorepo** | pnpm workspaces, Turborepo |
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-Hackathon/
+imagify/
 ├── apps/
 │   ├── web/                    # Next.js frontend
+│   │   ├── app/                # Pages (App Router): home, explore, genres, create,
+│   │   │                       #   scene/[id], login, signup, profile, settings, ...
 │   │   └── src/
-│   │       ├── app/            # App Router pages
-│   │       │   ├── page.tsx         # Home page
-│   │       │   ├── explore/         # Browse scenes
-│   │       │   ├── create/          # Create new scene
-│   │       │   ├── scene/[id]/      # View/continue scene
-│   │       │   └── login/           # Authentication
-│   │       ├── components/     # React components
-│   │       │   ├── Header.tsx
-│   │       │   ├── Player.tsx
-│   │       │   ├── SceneTimeline.tsx
-│   │       │   ├── ContinueModal.tsx
-│   │       │   └── GenreCards.tsx
-│   │       ├── lib/            # Utilities & API client
-│   │       │   ├── api.ts
-│   │       │   └── auth-context.tsx
-│   │       └── styles/         # Global styles
+│   │       ├── components/     # Header, SceneTimeline, RecentComics, ...
+│   │       └── lib/            # API client and auth context
 │   │
 │   └── api/                    # NestJS API server
-│       └── src/
-│           ├── modules/
-│           │   ├── auth/       # JWT authentication
-│           │   ├── scenes/     # Scene CRUD
-│           │   ├── segments/   # Video segments
-│           │   ├── topics/     # Story categories
-│           │   └── jobs/       # Background jobs
-│           ├── firestore/      # Firestore integration
-│           ├── redis/          # Redis caching
-│           └── main.ts
+│       ├── src/
+│       │   ├── modules/
+│       │   │   ├── auth/       # Signup, login, JWT
+│       │   │   ├── topics/     # Story topics and categories
+│       │   │   ├── scenes/     # Scenes and Scene Bible
+│       │   │   ├── segments/   # Comic pages
+│       │   │   └── jobs/       # Generation jobs
+│       │   ├── firestore/      # Firestore access
+│       │   ├── redis/          # Redis cache
+│       │   └── main.ts
+│       └── test/               # End-to-end tests
 │
 ├── services/
-│   └── generator/              # Python AI generation worker
-│       └── src/
-│           ├── api.py          # FastAPI endpoints
-│           ├── bullmq_worker.py # Job queue worker
-│           ├── config.py       # Settings
-│           └── services/
-│               ├── comic_generator.py   # Image generation
-│               ├── script_expander.py   # AI script expansion
-│               ├── script_segmenter.py  # Panel segmentation
-│               ├── continuity.py        # Scene Bible
-│               ├── firestore_db.py      # Database
-│               └── gcs_storage.py       # Cloud Storage
+│   └── generator/              # Python AI generation service
+│       ├── src/
+│       │   ├── api.py          # FastAPI: script analysis
+│       │   ├── bullmq_worker.py # Worker: comic generation jobs
+│       │   ├── config.py       # Settings
+│       │   └── services/       # Script expansion, panel images, Firestore, Cloud Storage
+│       └── tests/
 │
 ├── packages/
-│   └── shared/                 # Shared TypeScript types
-│       └── src/
+│   └── shared/                 # Shared TypeScript types and utilities
 │
-├── docs/                       # Documentation
-│   ├── 01-product-spec.md
-│   ├── 02-architecture.md
-│   ├── 03-database-schema.md
-│   ├── 04-api-spec.md
-│   ├── 05-continuity-system.md
-│   └── ...
-│
-├── infra/
-│   └── docker/                 # Docker configs
-│
-├── docker-compose.yml          # Local development
-├── package.json                # Root (workspaces)
-├── turbo.json                  # Turborepo config
-└── pnpm-workspace.yaml
+├── docs/                       # Original design documents (see below)
+├── docker-compose.yml          # Redis for local development
+└── .env.example                # Configuration template
 ```
 
 ---
@@ -133,158 +103,111 @@ Hackathon/
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 18+ and pnpm 8+
 - Python 3.11+
-- pnpm 8+
 - Redis (local or Docker)
-- Google Cloud Project (for Firestore + Storage)
+- A Google Cloud project with Firestore and Cloud Storage enabled, and a service account key with access to both
 
-### 1. Clone and Install
+### 1. Install
 
 ```bash
-cd Hackathon
+cd imagify
 pnpm install
 ```
 
-### 2. Environment Setup
+### 2. Configure
 
 ```bash
 cp .env.example .env
-# Edit .env with your configuration
 ```
 
-Required environment variables:
+Fill in `.env`. Both the API and the generator read it. You need:
+
+- `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (long random strings; the API won't start without them)
+- `GOOGLE_CLOUD_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS`, and `GCS_BUCKET`
+- At least one image provider key: `APIFREE_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_AI_API_KEY`
+
+### 3. Start Redis
 
 ```bash
-# Google Cloud
-GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
-GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
-GCS_BUCKET="your-bucket-name"
-
-# Redis
-REDIS_URL="redis://localhost:6379"
-
-# Auth
-JWT_ACCESS_SECRET="your-secret"
-JWT_REFRESH_SECRET="your-refresh-secret"
-
-# AI Providers (at least one required)
-OPENAI_API_KEY="sk-..."
-GOOGLE_AI_API_KEY="your-google-ai-key"
-```
-
-### 3. Start Redis (if not running)
-
-```bash
-# Using Docker
-docker run -d -p 6379:6379 redis:7-alpine
-
-# Or use docker-compose
 docker compose up -d redis
+# or: docker run -d -p 6379:6379 redis:7-alpine
 ```
 
-### 4. Run Development Servers
+### 4. Run
 
 ```bash
-# Option 1: Run all with Turborepo
+# Terminal 1: web app (port 3000) and API (port 4000)
 pnpm run dev
 
-# Option 2: Run individually
-
-# Terminal 1: Frontend (http://localhost:3000)
-cd apps/web && pnpm run dev
-
-# Terminal 2: API Server (http://localhost:3001)
-cd apps/api && pnpm run dev
-
-# Terminal 3: Generator Worker (http://localhost:8080)
+# Terminals 2 and 3: the generator
 cd services/generator
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-uvicorn src.api:app --reload --port 8080
+python -m src.bullmq_worker                    # worker: draws the comic pages
+uvicorn src.api:app --reload --port 8080       # API: script analysis (in another terminal)
 ```
 
-### 5. Access the Application
+### 5. Open
 
 | Service | URL |
 |---------|-----|
 | **Web App** | http://localhost:3000 |
-| **API Server** | http://localhost:3001 |
+| **API** | http://localhost:4000/api/v1 |
+| **API Docs (Swagger)** | http://localhost:4000/api/docs |
 | **Generator API** | http://localhost:8080 |
 
 ---
 
 ## 📚 API Endpoints
 
+All routes start with `/api/v1`. 🔒 = login required.
+
 ### Authentication
 ```
-POST /api/v1/auth/signup     # Create account
-POST /api/v1/auth/login      # Login, get JWT tokens
-POST /api/v1/auth/refresh    # Refresh access token
-GET  /api/v1/auth/me         # Get current user
+POST /auth/signup             # Create account
+POST /auth/login              # Log in, get access and refresh tokens
+POST /auth/refresh            # Refresh the access token
+POST /auth/logout             # 🔒 Log out
+GET  /auth/me                 # 🔒 Current user
+POST /auth/forgot-password    # Request a password reset
+POST /auth/reset-password     # Set a new password with a reset token
 ```
 
 ### Topics
 ```
-GET  /api/v1/topics          # List all topics
-GET  /api/v1/topics/:id      # Get topic details
+GET  /topics                  # List topics
+GET  /topics/categories       # List categories
+GET  /topics/:id              # Topic details
+POST /topics                  # 🔒 Create a topic
 ```
 
 ### Scenes
 ```
-GET  /api/v1/scenes          # List scenes (with filters)
-GET  /api/v1/scenes/:id      # Get scene with segments
-POST /api/v1/scenes          # Create new scene (auth required)
+GET  /scenes                  # List scenes (topicId, genre, sort, page, limit)
+GET  /scenes/:id              # Scene with its pages
+GET  /scenes/:id/pages        # Comic pages
+GET  /scenes/:id/bible        # Scene Bible
+POST /scenes                  # 🔒 Create a scene and queue its first pages
+POST /scenes/:id/continue     # 🔒 Add a page to a scene
 ```
 
-### Segments
+### Segments (comic pages)
 ```
-POST /api/v1/scenes/:id/segments  # Add segment to scene
-GET  /api/v1/segments/:id         # Get segment details
+GET  /segments/:id                     # Page details
+GET  /segments/scene/:sceneId          # Pages in a scene
+POST /segments/submit                  # 🔒 Submit a page prompt
+POST /segments/generate                # 🔒 Generate a submitted page
+POST /segments/submit-and-generate     # 🔒 Both in one step
+GET  /segments/job/:jobId/status       # Generation status
 ```
 
 ### Jobs
 ```
-GET  /api/v1/jobs/:id        # Get generation job status
-```
-
----
-
-## 🔄 Generation Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    AI GENERATION PIPELINE                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  1. User submits scene prompt                                   │
-│                              │                                   │
-│                              ▼                                   │
-│  2. Script Expander (GPT-4)                                     │
-│     • Expands prompt into detailed narrative                    │
-│     • Maintains Scene Bible continuity                          │
-│                              │                                   │
-│                              ▼                                   │
-│  3. Script Segmenter                                            │
-│     • Breaks script into panel-by-panel segments                │
-│     • Generates image prompts for each panel                    │
-│                              │                                   │
-│                              ▼                                   │
-│  4. Comic Generator                                             │
-│     • Google AI (Imagen 3) or OpenAI                           │
-│     • Creates comic panel images                                │
-│                              │                                   │
-│                              ▼                                   │
-│  5. Storage                                                     │
-│     • Upload to Google Cloud Storage                            │
-│     • Update Firestore with URLs                               │
-│                              │                                   │
-│                              ▼                                   │
-│  6. Real-time Update                                            │
-│     • Notify frontend via WebSocket/polling                    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+GET  /jobs/:id                # Job status
+POST /jobs/:id/retry          # 🔒 Retry a failed job
+POST /jobs/:id/cancel         # 🔒 Cancel a pending job
 ```
 
 ---
@@ -294,36 +217,25 @@ GET  /api/v1/jobs/:id        # Get generation job status
 ### Run Tests
 
 ```bash
-# Frontend/API tests
+# API end-to-end tests (in-memory Firestore and Redis, so no cloud setup needed)
 pnpm test
 
 # Generator tests
 cd services/generator
-pytest tests/ -v
+pytest
 ```
 
-### Lint & Format
+### Format
 
 ```bash
-pnpm lint
 pnpm format
-```
-
-### Database Operations
-
-```bash
-# Generate Prisma client (if using Prisma)
-pnpm db:generate
-
-# Run migrations
-pnpm db:migrate
 ```
 
 ---
 
 ## 📖 Documentation
 
-Detailed documentation is available in the `/docs` folder:
+The `/docs` folder holds the design documents written at the start of the hackathon, when Imagify (then StoryForge) was planned as a video platform on PostgreSQL and S3. The code has since moved to comic pages on Firestore and Cloud Storage, so the docs describe the original plan rather than the current implementation.
 
 - [Product Spec](docs/01-product-spec.md)
 - [Architecture](docs/02-architecture.md)
@@ -339,10 +251,20 @@ Detailed documentation is available in the `/docs` folder:
 
 ## 🔐 Security Notes
 
-- JWT tokens stored in localStorage (access) and httpOnly cookies (refresh)
-- All API endpoints requiring auth use Passport JWT guards
-- Google Cloud credentials should never be committed
-- Use environment variables for all secrets
+- Access and refresh tokens are stored in the browser's localStorage
+- Routes that create content or start AI generation require a valid JWT
+- The API refuses to start without `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
+- Password reset emails are not sent yet; the reset link is only logged when `NODE_ENV=development`
+- `.env` files and service account keys are gitignored; never commit them
+
+---
+
+## 🧭 Known Limitations
+
+- The Scene Bible is created for each scene but not filled in automatically yet
+- Password reset emails are not implemented
+- The web app checks job progress by polling; the API's Socket.io gateway is not connected to the worker's updates
+- No linter is configured
 
 ---
 
