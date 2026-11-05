@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# API Keys - DO NOT COMMIT
+storify/api-config.js
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Build outputs
+dist/
+build/

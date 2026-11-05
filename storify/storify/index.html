@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storify - Tell Your Story</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    
+    <!-- API Configuration (gitignored) -->
+    <script src="api-config.js"></script>
+    <script src="firebase-config.js"></script>
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-page">
+        <div class="login-background">
+            <div class="floating-shapes">
+                <div class="shape shape-1"></div>
+                <div class="shape shape-2"></div>
+                <div class="shape shape-3"></div>
+                <div class="shape shape-4"></div>
+            </div>
+        </div>
+        
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="logo">
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                    <h1>Storify</h1>
+                    <p id="authSubtitle">Where every picture tells a story</p>
+                </div>
+                
+                <!-- Login Form -->
+                <form id="loginForm" class="login-form">
+                    <div class="auth-error hidden" id="loginError">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span></span>
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="username" placeholder="Username" required autocomplete="username">
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+                    </div>
+                    
+                    <button type="submit" class="login-btn">
+                        <span>Sign In</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </form>
+                
+                <!-- Signup Form -->
+                <form id="signupForm" class="login-form hidden">
+                    <div class="auth-error hidden" id="signupError">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span></span>
+                    </div>
+                    
+                    <div class="auth-success hidden" id="signupSuccess">
+                        <i class="fas fa-check-circle"></i>
+                        <span></span>
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="signupUsername" placeholder="Choose a username" required minlength="3" autocomplete="username">
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="signupEmail" placeholder="Email address" required autocomplete="email">
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="signupPassword" placeholder="Create password" required minlength="6" autocomplete="new-password">
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="signupConfirmPassword" placeholder="Confirm password" required autocomplete="new-password">
+                    </div>
+                    
+                    <div class="password-requirements">
+                        <p>Password must:</p>
+                        <ul>
+                            <li id="reqLength"><i class="fas fa-circle"></i> Be at least 6 characters</li>
+                            <li id="reqMatch"><i class="fas fa-circle"></i> Passwords match</li>
+                        </ul>
+                    </div>
+                    
+                    <button type="submit" class="login-btn signup-btn">
+                        <span>Create Account</span>
+                        <i class="fas fa-user-plus"></i>
+                    </button>
+                </form>
+                
+                <!-- Forgot Password Form -->
+                <form id="forgotPasswordForm" class="login-form hidden">
+                    <div class="auth-error hidden" id="forgotError">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span></span>
+                    </div>
+                    
+                    <div class="auth-success hidden" id="forgotSuccess">
+                        <i class="fas fa-check-circle"></i>
+                        <span></span>
+                    </div>
+                    
+                    <p style="text-align: center; margin-bottom: 20px; color: var(--text-light);">
+                        Enter your email address and we'll send you a link to reset your password.
+                    </p>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="forgotEmail" placeholder="Email address" required autocomplete="email">
+                    </div>
+                    
+                    <button type="submit" class="login-btn">
+                        <span>Send Reset Link</span>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+                
+                <div class="login-footer">
+                    <p id="authToggleText">New to Storify? <a href="#" id="signupLink">Create an account</a></p>
+                    <p id="forgotPasswordText" class="forgot-password-link"><a href="#" id="forgotPasswordLink">Forgot your password?</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Story Page -->
+    <div id="storyPage" class="story-page hidden">
+        <!-- Header -->
+        <header class="story-header">
+            <div class="header-left">
+                <div class="logo-small">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <h2>Storify</h2>
+            </div>
+            <div class="header-right">
+                <button id="draftsBtn" class="drafts-btn" title="Saved Drafts">
+                    <i class="fas fa-folder-open"></i>
+                    <span>Drafts</span>
+                </button>
+                <span id="welcomeUser">Welcome, Storyteller</span>
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Background Scenery -->
+        <div class="scenery-background">
+            <div class="mountains">
+                <div class="mountain mountain-1"></div>
+                <div class="mountain mountain-2"></div>
+                <div class="mountain mountain-3"></div>
+            </div>
+            <div class="clouds">
+                <div class="cloud cloud-1"></div>
+                <div class="cloud cloud-2"></div>
+                <div class="cloud cloud-3"></div>
+            </div>
+            <div class="trees">
+                <div class="tree tree-1"></div>
+                <div class="tree tree-2"></div>
+                <div class="tree tree-3"></div>
+                <div class="tree tree-4"></div>
+            </div>
+            <div class="ground"></div>
+        </div>
+
+        <!-- Story Title Section -->
+        <div class="story-title-section">
+            <input type="text" id="storyTitle" placeholder="Give your story a title..." class="story-title-input">
+            <p class="story-subtitle">Upload images and relive your memories</p>
+        </div>
+
+        <!-- Roadmap Container -->
+        <div class="roadmap-container">
+            <svg class="roadmap-path" id="roadmapSvg">
+                <defs>
+                    <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <path id="curvePath" class="curve-path" fill="none" stroke="url(#pathGradient)" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+            
+            <div id="storyPoints" class="story-points">
+                <!-- Story points will be added here dynamically -->
+            </div>
+        </div>
+
+        <!-- Add Story Button -->
+        <button id="addStoryBtn" class="add-story-btn">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        <!-- AI Narration Panel -->
+        <div id="narrationPanel" class="narration-panel hidden">
+            <div class="narration-header">
+                <i class="fas fa-wand-magic-sparkles"></i>
+                <span>AI Narrator</span>
+                <button id="resetStartPoint" class="reset-start-btn" title="Reset to start from Chapter 1">
+                    <i class="fas fa-undo"></i>
+                </button>
+                <button id="closeNarration" class="close-narration">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="narrationContent" class="narration-content">
+                <p>Click on any story point to hear its tale...</p>
+            </div>
+            <div class="narration-controls">
+                <button id="playNarration" class="play-narration-btn">
+                    <i class="fas fa-play"></i>
+                    <span>Play Narration</span>
+                </button>
+                <button id="stopNarration" class="stop-narration-btn">
+                    <i class="fas fa-stop"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add a New Chapter</h3>
+                <button id="closeModal" class="close-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="imageInput" accept="image/*" hidden>
+                    <div class="upload-placeholder" id="uploadPlaceholder">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drop your image here or click to browse</p>
+                    </div>
+                    <img id="imagePreview" class="image-preview hidden" alt="Preview">
+                </div>
+                
+                <div class="note-section">
+                    <label for="imageNote">What's happening in this moment?</label>
+                    <textarea id="imageNote" placeholder="Describe this moment in your story..." rows="4"></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="cancelUpload" class="btn btn-secondary">Cancel</button>
+                <button id="saveStory" class="btn btn-primary">
+                    <i class="fas fa-magic"></i>
+                    Add to Story
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Story Detail Modal -->
+    <div id="storyDetailModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content story-detail-content">
+            <button id="closeDetailModal" class="close-modal">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="detail-image-container">
+                <img id="detailImage" src="" alt="Story moment">
+            </div>
+            
+            <div class="detail-info">
+                <div class="detail-chapter">
+                    <span id="detailChapter">Chapter 1</span>
+                </div>
+                
+                <!-- Editable Note Section -->
+                <div class="note-edit-section">
+                    <div class="note-header">
+                        <span class="note-label"><i class="fas fa-pen-fancy"></i> Your Note</span>
+                        <button id="editNoteBtn" class="edit-note-btn" title="Edit note">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    <p id="detailNote" class="detail-note"></p>
+                    <textarea id="detailNoteEdit" class="detail-note-edit hidden" rows="3" placeholder="Describe this moment..."></textarea>
+                    <div id="noteSaveActions" class="note-save-actions hidden">
+                        <button id="cancelNoteEdit" class="btn-sm btn-cancel">Cancel</button>
+                        <button id="saveNoteEdit" class="btn-sm btn-save">Save Note</button>
+                    </div>
+                </div>
+                
+                <div class="ai-story-section">
+                    <div class="ai-story-header">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                        <span>AI Narration</span>
+                    </div>
+                    <p id="aiNarration" class="ai-narration-text">
+                        <!-- AI generated story will appear here -->
+                    </p>
+                    <button id="regenerateStory" class="regenerate-btn">
+                        <i class="fas fa-sync-alt"></i>
+                        Regenerate Story
+                    </button>
+                </div>
+                
+                <!-- Photo Actions -->
+                <div class="photo-actions">
+                    <button id="replacePhoto" class="action-btn replace-btn">
+                        <i class="fas fa-image"></i>
+                        Replace Photo
+                    </button>
+                    <button id="deletePhoto" class="action-btn delete-btn">
+                        <i class="fas fa-trash-alt"></i>
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drafts Modal -->
+    <div id="draftsModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content drafts-modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-folder-open"></i> Your Drafts</h3>
+                <button id="closeDraftsModal" class="close-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body drafts-body">
+                <!-- Current Story Actions -->
+                <div class="current-story-actions">
+                    <button id="saveAsDraft" class="save-draft-btn">
+                        <i class="fas fa-save"></i>
+                        Save Current Story as Draft
+                    </button>
+                    <button id="startNewStory" class="new-story-btn">
+                        <i class="fas fa-plus-circle"></i>
+                        Start Fresh Story
+                    </button>
+                </div>
+                
+                <div class="drafts-divider">
+                    <span>Saved Drafts</span>
+                </div>
+                
+                <!-- Drafts List -->
+                <div id="draftsList" class="drafts-list">
+                    <!-- Drafts will be loaded here dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Meditation Viewer -->
+    <div id="meditationViewer" class="meditation-viewer hidden">
+        <div class="meditation-backdrop"></div>
+        <div class="meditation-image-container">
+            <img id="meditationImage" class="meditation-image" src="" alt="Memory">
+            <img id="meditationImageNext" class="meditation-image meditation-image-next" src="" alt="Next Memory">
+        </div>
+        <div class="meditation-overlay">
+            <div class="meditation-text-container">
+                <p id="meditationText" class="meditation-text"></p>
+            </div>
+            <div class="meditation-progress">
+                <div id="meditationProgressBar" class="meditation-progress-bar"></div>
+            </div>
+            <div class="meditation-controls">
+                <button id="meditationClose" class="meditation-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="meditation-moment-indicator">
+                <span id="currentMomentNum">1</span> / <span id="totalMomentsNum">1</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
