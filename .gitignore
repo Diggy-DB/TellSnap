@@ -1,0 +1,13 @@
+# OS and editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+
+# Secrets and local config (never commit)
+.env
+.env.local
+**/credentials.json
+storify/storify/api-config.js

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TellSnap</title>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.2rem;
+            margin-bottom: 60px;
+        }
+
+        .projects {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .project-card {
+            width: 320px;
+            min-height: 380px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .project-card:hover {
+            transform: translateY(-15px) scale(1.02);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .project-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin-bottom: 25px;
+            transition: transform 0.3s ease;
+        }
+
+        .project-card:hover .project-icon {
+            transform: scale(1.1);
+        }
+
+        .storify-icon {
+            background: linear-gradient(135deg, #4A7C6F 0%, #2E5A4C 100%);
+            color: #fff;
+        }
+
+        .hackathon-icon {
+            background: linear-gradient(135deg, #E8B86D 0%, #D4956A 100%);
+            color: #fff;
+        }
+
+        .project-title {
+            color: #fff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .project-description {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .arrow {
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .project-card:hover .arrow {
+            color: #fff;
+            transform: translateX(10px);
+        }
+
+        /* Floating background shapes */
+        .bg-shapes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.1;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        .shape-1 {
+            width: 400px;
+            height: 400px;
+            background: #4A7C6F;
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .shape-2 {
+            width: 300px;
+            height: 300px;
+            background: #E8B86D;
+            bottom: -50px;
+            right: -50px;
+            animation-delay: 3s;
+        }
+
+        .shape-3 {
+            width: 200px;
+            height: 200px;
+            background: #fff;
+            top: 50%;
+            right: 20%;
+            animation-delay: 6s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(5deg); }
+        }
+
+        @media (max-width: 700px) {
+            .projects {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .project-card {
+                width: 280px;
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <div class="container">
+        <h1>Welcome to TellSnap</h1>
+        <p class="subtitle">Choose a project to explore</p>
+        
+        <div class="projects">
+            <a href="storify/storify/index.html" class="project-card">
+                <div class="project-icon storify-icon">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <h2 class="project-title">Storify</h2>
+                <p class="project-description">Transform your cherished photos into healing meditations. Upload memories, add personal notes, and let AI weave them into a soothing narrated journey—complete with calming voice and gentle image transitions.</p>
+                <div class="arrow">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+            
+            <a href="http://localhost:3000" class="project-card">
+                <div class="project-icon hackathon-icon">
+                    <i class="fas fa-images"></i>
+                </div>
+                <h2 class="project-title">Imagify</h2>
+                <p class="project-description">Unleash your creativity with collaborative AI comics. Create rooms, invite friends, and build stunning visual stories together in real-time—where every panel sparks new possibilities.</p>
+                <div class="arrow">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
