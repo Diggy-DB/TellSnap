@@ -18,3 +18,13 @@ __pycache__/
 credentials.json
 **/credentials.json
 
+
+# Build output and local environment (never commit)
+dist/
+.turbo/
+*.tsbuildinfo
+__pycache__/
+.env
+.env.local
+.vercel/
+.pytest_cache/
