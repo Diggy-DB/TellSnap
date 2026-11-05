@@ -13,6 +13,7 @@ import openai
 import structlog
 
 from src.config import get_settings
+from src.services.script_expander import _as_entries
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -51,7 +52,8 @@ class ScriptSegmenter:
     MAX_SEGMENTS = 5  # Cap the number of pages to avoid excessive API calls
 
     def __init__(self):
-        self.client = openai.OpenAI(api_key=settings.openai_api_key)
+        # OpenAI is optional: without a key, the existing fallbacks estimate and split the script
+        self.client = openai.OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
         self.model = settings.openai_model
 
     def analyze_and_segment(
@@ -173,7 +175,7 @@ Respond with ONLY a JSON object: {"panel_count": <number>, "reasoning": "<brief 
             # Extract key info from bible
             characters = scene_bible.get("characters", {})
             if characters:
-                char_names = [c.get("name", k) for k, c in characters.items()]
+                char_names = [c.get("name", k) for k, c in _as_entries(characters)]
                 bible_str = f"\nCharacters: {', '.join(char_names)}"
 
         try:

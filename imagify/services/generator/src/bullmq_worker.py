@@ -73,19 +73,19 @@ async def process_generation_job(job: Job, token: str) -> dict:
             raise ValueError(f"Missing segment or scene data")
 
         user_prompt = segment.get("prompt", user_prompt)
-        topic_id = scene.get("topic_id") or (scene.get("topic", {}).get("id") if scene.get("topic") else None)
+        topic_id = scene.get("topicId") or (scene.get("topic", {}).get("id") if scene.get("topic") else None)
 
         # Get scene bible for continuity
         scene_bible = db.get_scene_bible(scene_id)
 
         # Get previous segments for context
-        previous_segments = db.get_segments_before(scene_id, segment.get("order_index", 0))
+        previous_segments = db.get_segments_before(scene_id, segment.get("orderIndex", 0))
         prev_segment_objs = [
             PreviousSegment(
-                order_index=s["order_index"],
+                order_index=s.get("orderIndex", 0),
                 prompt=s.get("prompt", ""),
-                expanded_script=s.get("expanded_script"),
-                image_url=s.get("image_url"),
+                expanded_script=s.get("expandedScript") or s.get("expanded_script"),
+                image_url=s.get("imageUrl"),
             )
             for s in previous_segments
         ]
@@ -112,7 +112,7 @@ async def process_generation_job(job: Job, token: str) -> dict:
 
         # Save expanded script and genre
         db.update_segment(segment_id, {
-            "expanded_script": expanded.full_script,
+            "expandedScript": expanded.full_script,
             "genre": expanded.genre,
         })
         

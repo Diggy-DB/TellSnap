@@ -14,6 +14,30 @@ import structlog
 
 from src.config import get_settings
 
+
+def _as_entries(value: Any) -> list[tuple[str, dict]]:
+    """Normalize Scene Bible entities to (id, data) pairs.
+
+    The API stores characters and locations as lists of objects; older data
+    used a dict keyed by id. Accept both.
+    """
+    if not value:
+        return []
+    if isinstance(value, dict):
+        return [(str(k), v) for k, v in value.items() if isinstance(v, dict)]
+    return [
+        (str(item.get("entityId") or item.get("id") or item.get("name") or i), item)
+        for i, item in enumerate(value)
+        if isinstance(item, dict)
+    ]
+
+
+def _describe(physical: Any) -> str:
+    """Flatten a physicalDescription object into a short phrase."""
+    if isinstance(physical, dict):
+        return ", ".join(f"{k}: {v}" for k, v in physical.items() if v and not isinstance(v, (dict, list)))
+    return str(physical or "")
+
 logger = structlog.get_logger()
 settings = get_settings()
 
@@ -67,7 +91,8 @@ class ScriptExpander:
     """
 
     def __init__(self):
-        self.client = openai.OpenAI(api_key=settings.openai_api_key)
+        # OpenAI is optional: without a key, expand() uses the simple fallback script
+        self.client = openai.OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
         self.model = settings.openai_model
 
     def expand(
@@ -98,6 +123,10 @@ class ScriptExpander:
             num_previous=len(previous_segments) if previous_segments else 0,
             style=comic_style,
         )
+
+        if self.client is None:
+            logger.warning("OPENAI_API_KEY not set; using fallback script expansion")
+            return self._fallback_expand(user_prompt, scene_context, comic_style)
 
         system_prompt = self._build_system_prompt(scene_bible, comic_style)
         user_message = self._build_user_message(
@@ -230,40 +259,48 @@ Aim for 3-5 panels per page. Maximum 6 panels.
 """
 
         if scene_bible:
-            prompt += "\n\n## Scene Bible (Maintain Continuity)\n\n"
-            
+            characters = _as_entries(scene_bible.get("characters"))
+            locations = _as_entries(scene_bible.get("locations"))
+            rules = scene_bible.get("rules") or {}
+
+            if characters or locations or rules:
+                prompt += "\n\n## Scene Bible (Maintain Continuity)\n\n"
+
             # Add characters
-            characters = scene_bible.get("characters", {})
             if characters:
                 prompt += "### Characters\n"
-                for char_id, char in characters.items():
+                for char_id, char in characters:
                     name = char.get("name", char_id)
-                    visual = char.get("visualPrompt", char.get("description", ""))
-                    traits = char.get("traits", [])
+                    visual = char.get("visualPrompt") or char.get("description") or _describe(char.get("physicalDescription"))
+                    traits = char.get("traits") or char.get("personality") or []
                     prompt += f"- **{name}**: {visual}"
                     if traits:
                         prompt += f" (Traits: {', '.join(traits)})"
                     prompt += "\n"
-            
+
             # Add locations
-            locations = scene_bible.get("locations", {})
             if locations:
                 prompt += "\n### Locations\n"
-                for loc_id, loc in locations.items():
+                for loc_id, loc in locations:
                     name = loc.get("name", loc_id)
-                    visual = loc.get("visualPrompt", loc.get("description", ""))
+                    visual = loc.get("visualPrompt") or loc.get("description", "")
                     prompt += f"- **{name}**: {visual}\n"
-            
-            # Add style guide
-            rules = scene_bible.get("rules", {})
+
+            # Add style guide (a dict of style settings, or a list of rule entries)
             if rules:
                 prompt += "\n### Style Guide\n"
-                if "visualStyle" in rules:
-                    prompt += f"- Visual Style: {rules['visualStyle']}\n"
-                if "colorPalette" in rules:
-                    prompt += f"- Color Palette: {', '.join(rules['colorPalette'])}\n"
-                if "mood" in rules:
-                    prompt += f"- Mood: {rules['mood']}\n"
+                if isinstance(rules, dict):
+                    if "visualStyle" in rules:
+                        prompt += f"- Visual Style: {rules['visualStyle']}\n"
+                    if "colorPalette" in rules:
+                        prompt += f"- Color Palette: {', '.join(rules['colorPalette'])}\n"
+                    if "mood" in rules:
+                        prompt += f"- Mood: {rules['mood']}\n"
+                else:
+                    for rule in rules:
+                        text = rule.get("rule") or rule.get("description") if isinstance(rule, dict) else str(rule)
+                        if text:
+                            prompt += f"- {text}\n"
 
         return prompt
 

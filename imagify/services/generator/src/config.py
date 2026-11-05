@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     # Google Cloud
-    google_cloud_project: str = "gen-lang-client-0432066024"
+    google_cloud_project: str = ""  # set GOOGLE_CLOUD_PROJECT
     google_application_credentials: str = ""
     
     # Google Cloud Storage

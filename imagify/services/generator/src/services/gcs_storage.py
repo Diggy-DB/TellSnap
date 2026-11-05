@@ -32,12 +32,12 @@ class GCSStorageService:
                 settings.google_application_credentials
             )
             self.client = storage.Client(
-                project=settings.google_cloud_project,
+                project=settings.google_cloud_project or None,
                 credentials=credentials
             )
         else:
             # Use default credentials (for Cloud Run, GCE, etc.)
-            self.client = storage.Client(project=settings.google_cloud_project)
+            self.client = storage.Client(project=settings.google_cloud_project or None)
         
         self.bucket_name = settings.gcs_bucket
         self.bucket = self.client.bucket(self.bucket_name)
