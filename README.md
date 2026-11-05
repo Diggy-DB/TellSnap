@@ -6,6 +6,10 @@ TellSnap is a unified platform featuring two powerful applications that leverage
 
 Built by a team of three during a hackathon (January 31 – February 1, 2026). See [Team](#-team).
 
+| Storify | Imagify |
+|---|---|
+| ![The Storify sign-in screen](docs/storify.png) | ![The Imagify home page: Create your own comic](docs/imagify.png) |
+
 ---
 
 ## 🌟 Projects Overview
@@ -13,7 +17,7 @@ Built by a team of three during a hackathon (January 31 – February 1, 2026). S
 | Project | Description | Tech Stack |
 |---------|-------------|------------|
 | **[Storify](#storify-)** | Transform photos into therapeutic meditation experiences | Vanilla JS, Firebase, OpenAI, ElevenLabs |
-| **[Imagify](#imagify-)** | Collaborative AI-powered comic creation platform | Next.js, TypeScript, Python, PostgreSQL |
+| **[Imagify](#imagify-)** | Collaborative AI-powered comic creation platform | Next.js, NestJS, TypeScript, Python, Firestore, Redis |
 
 ---
 
@@ -382,3 +386,7 @@ Storify's earlier commit history is in [puppyhacker-0/Storify](https://github.co
 <p align="center">
   <b>TellSnap</b> - Where memories become meditations and stories come alive ✨
 </p>
+
+---
+
+<sub>Built by [Delger Byambasukh](https://github.com/Diggy-DB) · [Portfolio](https://diggy-db.github.io) · [Write-up](https://diggy-db.github.io/projects/tellsnap/)</sub>
