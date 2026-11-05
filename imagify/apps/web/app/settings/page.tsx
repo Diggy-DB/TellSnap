@@ -57,7 +57,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-background">
       <main className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
-        <p className="text-gray-400 mb-8">Customize your StoryForge experience</p>
+        <p className="text-gray-400 mb-8">Customize your Imagify experience</p>
 
         {/* Theme Section */}
         <section className="mb-10">

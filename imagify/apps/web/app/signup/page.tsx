@@ -53,7 +53,7 @@ export default function SignupPage() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">
             <span className="bg-gradient-to-r from-magenta via-cyan to-gold bg-clip-text text-transparent">
-              Join StoryForge
+              Join Imagify
             </span>
           </h1>
           <p className="text-gray-400">Create your account and start making comics</p>

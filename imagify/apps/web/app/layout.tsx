@@ -4,8 +4,8 @@ import Header from '../src/components/Header';
 import { Providers } from '../src/app/providers';
 
 export const metadata = {
-  title: 'StoryForge',
-  description: 'Collaborative cinematic + anime storytelling.'
+  title: 'Imagify',
+  description: 'Collaborative AI comic storytelling.'
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,4 +1,4 @@
-// API client for StoryForge
+// API client for the Imagify API
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
@@ -158,6 +158,7 @@ interface Scene {
   title: string;
   description: string;
   thumbnailUrl: string | null;
+  status: string;
   genre?: string;  // auto-detected genre
   segmentCount: number;
   likeCount: number;
@@ -193,7 +194,7 @@ interface PaginationMeta {
 interface CreateSceneInput {
   title: string;
   description: string;
-  topicId: string;
+  topicId?: string;
   initialPrompt: string;
 }
 

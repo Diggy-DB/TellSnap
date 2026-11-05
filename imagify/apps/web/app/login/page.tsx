@@ -38,7 +38,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            StoryForge
+            Imagify
           </Link>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             {isLogin ? 'Welcome back!' : 'Create your account'}
@@ -130,24 +130,6 @@ export default function LoginPage() {
               {isLoading ? 'Please wait...' : isLogin ? 'Login' : 'Create Account'}
             </button>
           </form>
-
-          {/* Demo Account */}
-          <div className="mt-6 pt-4 border-t text-center">
-            <p className="text-sm text-gray-500 mb-2">Try with demo account:</p>
-            <button
-              onClick={() => {
-                setFormData({
-                  email: 'alice@storyforge.dev',
-                  password: 'Demo123!',
-                  username: '',
-                });
-                setIsLogin(true);
-              }}
-              className="text-blue-600 hover:underline text-sm"
-            >
-              alice@storyforge.dev / Demo123!
-            </button>
-          </div>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-4">
