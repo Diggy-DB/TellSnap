@@ -10,11 +10,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "db:generate": "pnpm --filter @storyforge/api prisma generate",
-    "db:migrate": "pnpm --filter @storyforge/api prisma migrate dev",
-    "db:push": "pnpm --filter @storyforge/api prisma db push"
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",

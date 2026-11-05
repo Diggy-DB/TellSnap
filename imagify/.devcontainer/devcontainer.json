@@ -1,5 +1,5 @@
 {
-  "name": "StoryForge Web Dev Container",
+  "name": "Imagify Dev Container",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:0-20",
   "forwardPorts": [3000],
   "workspaceFolder": "/workspace",

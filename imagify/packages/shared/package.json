@@ -6,9 +6,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
-    "lint": "eslint src/",
-    "test": "jest"
+    "dev": "tsc --watch"
   },
   "dependencies": {
     "uuid": "^9.0.1",

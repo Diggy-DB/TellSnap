@@ -1,25 +1,13 @@
-# StoryForge — Web (Minimal Scaffold)
+# Imagify Web
 
-This is a small scaffolded frontend with Tailwind and a few UI components (Player, Timeline, Scene Bible, etc).
+Next.js 14 frontend for Imagify. Pages live in `app/`; shared components, the API client, and the auth context live in `src/`.
 
-Quick start:
+```bash
+# From imagify/ (installs the whole workspace)
+pnpm install
 
-1. cd apps/web
-2. pnpm install
-3. pnpm dev
+# Start the dev server on http://localhost:3000
+cd apps/web && pnpm dev
+```
 
-Notes:
-
-- This is intentionally minimal and focused on visual components and theming.
-- The components are small and separated into their own files to keep code readable.
-
-Files created:
-
-- `app/page.tsx`, `app/layout.tsx`
-- `src/components/*` (small, focused components)
-- `src/styles/globals.css`, `src/design/tokens.ts`, `src/lib/theme.ts`
-- `tailwind.config.cjs`, `postcss.config.cjs`, `tsconfig.json`, `package.json`
-
-Next steps:
-
-- Wire up real data, add tests, and integrate into a monorepo workspace (if desired).
+API requests go to `/api/v1`, which Next.js forwards to the API at `API_URL` (default `http://localhost:4000`). To call the API directly instead, set `NEXT_PUBLIC_API_URL` (for example `http://localhost:4000/api/v1`) in `apps/web/.env.local`.

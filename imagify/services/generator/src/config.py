@@ -37,7 +37,11 @@ class Settings(BaseSettings):
     api_port: int = 8080
 
     class Config:
-        env_file = str(Path(__file__).parent.parent / ".env")
+        # imagify/.env first, then services/generator/.env (later files take priority)
+        env_file = (
+            str(Path(__file__).parents[3] / ".env"),
+            str(Path(__file__).parents[1] / ".env"),
+        )
         env_file_encoding = "utf-8"
 
 
